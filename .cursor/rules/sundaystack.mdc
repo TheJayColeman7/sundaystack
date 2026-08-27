@@ -1,0 +1,143 @@
+---
+description: SundayStack project constitution — architecture, data rules, MVP scope, and coding standards
+alwaysApply: true
+---
+
+# SundayStack — Fantasy Sports Platform
+
+You are helping build **SundayStack**, a fantasy sports platform.
+
+Long-term vision (do not build all of this now): Sleeper-style league hosting and drafts, ESPN-style league management, Fantasy Footballers-style research, and AI assistants (lineups, waivers, trades, draft, weekly summaries).
+
+Initial goal: a working **NFL Fantasy Football MVP** using **free data sources and free infrastructure**.
+
+See `docs/ROADMAP.md` for the current phase. See `docs/ARCHITECTURE.md` and `docs/DATA_MODEL.md` before changing structure or schema.
+
+**Current status:** Phase 0.1 foundation is in place (nflverse ingest + public `GET /api/players`). Next work is player search UI and a basic player profile, still with no fantasy league tables. Then Phase 0.2.
+
+## Core Rule
+
+The application must NEVER be tightly coupled to Sleeper, nflverse, SportsDataIO, ESPN, or any individual sports-data provider.
+
+All external sports data must pass through a provider/normalization layer and be converted into our own internal data models:
+
+```text
+Sleeper / nflverse / SportsDataIO / Future Provider
+      ↓
+Sports Data Provider Layer
+      ↓
+Normalizer
+      ↓
+Our Internal Models
+      ↓
+PostgreSQL
+      ↓
+Fantasy Engine
+```
+
+Do not allow provider-specific response objects to leak outside their provider implementation.
+
+Do not use Sleeper IDs (or any provider IDs) as primary application IDs. Every application object uses our UUID. External IDs live in mapping tables (`player_external_ids`, `team_external_ids`, `game_external_ids`, and later league mappings).
+
+Sleeper is not our database. We import and normalize Sleeper data into our models.
+
+## Technology Stack
+
+```text
+Language          TypeScript (strict). Avoid `any` unless absolutely necessary.
+Web               Next.js, React, Tailwind CSS
+API               Express.js on Node.js (all HTTP APIs live here; do not duplicate them in Next.js)
+Mobile            React Native + Expo — later
+Database          PostgreSQL. Intended platform is Supabase. Phase 0.1 currently uses a free Neon project (Docker/Supabase were unavailable locally; outbound 5432 is blocked here).
+Auth              Supabase Auth when provisioned (`public.users.id` = `auth.users.id`). Public sports reads do not require auth.
+Realtime          Supabase Realtime initially; WebSockets later if needed
+Cache             Upstash Redis later if needed
+Hosting           Vercel (web). Express is local-first. Defaults are web 3000 / API 3001; use `.env` (`API_PORT`, `NEXT_PUBLIC_API_URL`) when those are taken.
+Source control    GitHub
+Repo / packages   sundaystack / @sundaystack/*
+```
+
+## Current MVP architecture
+
+Do not scaffold the full long-term tree until that phase starts.
+
+```text
+sundaystack/
+├── apps/web/                 # Next.js UI
+├── apps/api/                 # Express REST
+├── packages/shared/          # domain types, enums, API DTOs
+├── packages/database/        # Drizzle schema + queries (mirrors SQL)
+├── packages/sports-data/     # SportsDataProvider + nflverse + ingest CLI
+├── supabase/migrations/      # canonical SQL
+└── docs/
+```
+
+Deferred until needed: `apps/mobile`, `packages/ui`, `packages/fantasy-engine`, `packages/scoring`, `services/nfl-ingestion`, `services/scoring-worker`.
+
+SQL migrations in `supabase/migrations` are canonical. Drizzle is a typed mirror — do not generate a second migration history with drizzle-kit.
+
+`DATABASE_URL` is the app connection. Against Neon hosts, use the HTTP/serverless driver (port 443). Prefer `postgres.js` for local or Supabase direct (5432) connections. Do not commit `.env`.
+
+Prefer simple solutions over premature microservices. Never make large architectural changes without explaining them. All HTTP APIs live in Express; do not add a parallel `/api` tree in Next.js.
+
+## Sports data
+
+Phase 0.1 primary source: **nflverse** (players, rosters, teams, schedules, weekly stats). Play-by-play, snaps, injuries, and advanced stats come later.
+
+Sleeper is for later import of users/leagues/drafts/matchups — still normalized into our models.
+
+Provider interface shape (extend with optional `getInjuries` / `getDepthCharts` when those phases start):
+
+```typescript
+interface SportsDataProvider {
+  getPlayers(): Promise<NormalizedPlayer[]>;
+  getTeams(): Promise<NormalizedTeam[]>;
+  getSchedule(season: number, week?: number): Promise<NormalizedGame[]>;
+  getPlayerStats(season: number, week?: number): Promise<NormalizedPlayerGameStats[]>;
+}
+```
+
+Implementations: `NflverseProvider`, `MockProvider`, later `SleeperProvider`, `SportsDataIOProvider`.
+
+## Scoring vs statistics
+
+Sports providers supply real football statistics. **We** calculate fantasy points. Do not store fantasy points on `player_game_stats`. Do not hardcode league scoring into ingested stats.
+
+The scoring engine (future `packages/fantasy-engine`) must support Standard, Half PPR, Full PPR, custom receptions, 4-pt/6-pt pass TDs, yardage/long-TD bonuses, TE premium, fractional and negative scoring, custom K/DST.
+
+## Database
+
+Keep real-world sports data and fantasy application data logically separated. Do not create fantasy league tables before that phase.
+
+Use UUID PKs, `created_at`/`updated_at`, FKs, constraints, and indexes. Avoid derived data unless there is a performance reason (`players.team_id` as current team is an intentional denorm). Use JSONB only when it actually makes sense — not for major business objects.
+
+## Coding rules
+
+- Keep code modular. Put fantasy rules in domain/service layers, not UI.
+- Avoid coupling UI to database records; use DTOs.
+- Avoid duplicate business logic.
+- Do not trust client-side validation for league rules; validate server-side.
+- Consider concurrency for drafts, waivers, trades, and roster changes.
+- Never expose provider API keys client-side. Secrets in environment variables.
+- Useful comments only, not obvious ones.
+- Keep README and `docs/` updated when architecture decisions change.
+
+## Testing
+
+Prioritize tests for: data normalization, fantasy scoring, draft rules, roster/lineup validation, waivers, trades, standings, playoff seeding. Scoring should have extensive unit tests when that package exists.
+
+## Cost
+
+Target **$0/month**. Use free tiers. Do not introduce a paid API, database, host, auth, or monitoring product without discussing it first.
+
+## UI (when we build UI)
+
+Feel: Sleeper + modern sportsbook + fantasy analytics. Dark-mode friendly, clean, dense where useful, mobile-first. Avoid giant whitespace, excessive gradients, overly rounded chrome, generic AI SaaS look, unnecessary animation.
+
+## How to work
+
+For each significant step: (1) what you found, (2) what you recommend, (3) which files change, (4) make the change, (5) how to test, (6) logical next step.
+
+If uncertain, inspect existing code before assuming. Prefer incremental, testable changes.
+
+Do not build large amounts of UI around a bad data model. Before a major feature: understand the domain → models → DB relationships → service boundaries → API contract → implement → test.

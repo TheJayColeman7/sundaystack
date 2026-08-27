@@ -1,0 +1,24 @@
+{
+  "name": "sundaystack",
+  "private": true,
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:api": "pnpm --filter @sundaystack/api dev",
+    "dev:web": "pnpm --filter @sundaystack/web dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "ingest": "pnpm --filter @sundaystack/sports-data ingest"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}
