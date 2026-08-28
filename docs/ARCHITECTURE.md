@@ -1,6 +1,6 @@
 # Architecture
 
-SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.4 weekly H2H matchups and fantasy **points** are in (`packages/fantasy-engine`, computed on read; never stored on `player_game_stats`). Phase 0.5a ESPN-style FA/waivers and Phase 0.5b two-team player trades are done (instant accept, lazy expiry). Extra commissioner tools and playoffs stay later in 0.5.
+SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.4 weekly H2H matchups and fantasy **points** are in (`packages/fantasy-engine`, computed on read; never stored on `player_game_stats`). Phase 0.5a ESPN-style FA/waivers and Phase 0.5b two-team player trades are done (instant accept, lazy expiry). Phase 0.5c adds a 4-team playoff (lazy bracket after week-14 games are final; trades close when seeds exist). Extra commissioner tools stay later in 0.5.
 
 ## Why this shape
 
@@ -37,9 +37,9 @@ Next.js web app
 ```text
 apps/web                 Next.js App Router + Tailwind (login, leagues, roster, draft, matchup, waivers, trades, player)
 apps/api                 Express REST (dev session + leagues + drafts + matchups + waivers + trades + public players)
-packages/shared          Domain types, scoring presets, lineup + snake-draft + schedule + waiver + trade rules, API DTOs
+packages/shared          Domain types, scoring presets, lineup + snake-draft + schedule + waiver + trade + playoff rules, API DTOs
 packages/fantasy-engine  Pure fantasy-point scoring (skill + K; DEF = 0)
-packages/database        Drizzle schema + queries (sports + fantasy + drafts + matchups + waivers + trades)
+packages/database        Drizzle schema + queries (sports + fantasy + drafts + matchups + waivers + trades + playoffs)
 packages/sports-data     SportsDataProvider, NflverseProvider, MockProvider, ingest
 supabase/migrations      Canonical PostgreSQL
 docs/
@@ -70,7 +70,7 @@ Public (no session): `GET /api/players`, `GET /api/players/:id`.
 
 Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League, draft, matchup, waiver, and trade routes require a session.
 
-The live draft board **polls** Express (about 1.5s). Scoreboard, waivers, and trades poll about 15s while a week is live. Draft clock expiry, week lineup lock, waiver processing, and trade offer expiry are **lazy**: the next authenticated GET/POST that sees the condition performs the work. No worker, Redis, or Realtime.
+The live draft board **polls** Express (about 1.5s). Scoreboard, waivers, and trades poll about 15s while a week is live. Draft clock expiry, week lineup lock, waiver processing, trade offer expiry, and playoff bracket/championship generation are **lazy**: the next authenticated GET/POST that sees the condition performs the work. No worker, Redis, or Realtime.
 
 Secrets stay in environment variables. Never send provider keys to the client.
 
@@ -82,10 +82,10 @@ Default ports are web `3000` and API `3001`. This machine uses `3002` / `3010` w
 
 Row Level Security allows public `SELECT` on sports tables. Fantasy tables deny `anon`. Express uses the database owner (bypasses RLS); league rules are enforced in Express.
 
-Neon HTTP (`drizzle-orm/neon-http`) has no interactive transactions. League create, draft picks, matchup inserts, week snapshots, waiver awards, and trade swaps are ordered inserts; unique constraints serialize races. A mid-flight failure returns 409/500.
+Neon HTTP (`drizzle-orm/neon-http`) has no interactive transactions. League create, draft picks, matchup inserts, week snapshots, waiver awards, trade swaps, and playoff seed/bracket inserts are ordered inserts; unique constraints serialize races. A mid-flight failure returns 409/500.
 
 Fantasy points are not columns. Changing `league_scoring_rules` changes standings on the next read.
 
 ## Cost
 
-Target $0/month: Neon/Supabase free tier, no Redis, no commercial sports API, no hosted worker. Ingest and DST seed are CLIs. Draft clock, week lock, waiver process, and trade expiry have no background job.
+Target $0/month: Neon/Supabase free tier, no Redis, no commercial sports API, no hosted worker. Ingest and DST seed are CLIs. Draft clock, week lock, waiver process, trade expiry, and playoff bracket generation have no background job.

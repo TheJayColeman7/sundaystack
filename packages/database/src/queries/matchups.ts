@@ -9,6 +9,7 @@ import {
 import type {
   CountingStats,
   MatchupDto,
+  PlayoffBracketDto,
   PlayerWeekScoreDto,
   ScoringRule,
   StandingsRowDto,
@@ -19,7 +20,13 @@ import {
   EMPTY_COUNTING_STATS,
   STARTER_SLOTS,
   buildRoundRobin,
+  championshipPairing,
   isStatKey,
+  playoffWeeks,
+  regularWeekAllFinal,
+  seedPlayoffTeams,
+  semiPairings,
+  type PlayoffSeeds,
 } from "@sundaystack/shared";
 import type { Database } from "../client";
 import {
@@ -29,6 +36,7 @@ import {
   leagueSettings,
   leagues,
   matchups,
+  playoffSeeds,
   playerGameStats,
   players,
   rosterPlayers,
@@ -178,9 +186,9 @@ async function loadRegGames(
 
 export function deriveCurrentWeek(
   weekGames: Array<{ week: number; status: string }>,
-  regularSeasonWeeks: number,
+  maxWeek: number,
 ): number {
-  const capped = weekGames.filter((game) => game.week >= 1 && game.week <= regularSeasonWeeks);
+  const capped = weekGames.filter((game) => game.week >= 1 && game.week <= maxWeek);
   if (capped.length === 0) {
     return 1;
   }
@@ -193,7 +201,7 @@ export function deriveCurrentWeek(
     }
   }
 
-  return Math.min(regularSeasonWeeks, weeks[weeks.length - 1] ?? 1);
+  return Math.min(maxWeek, weeks[weeks.length - 1] ?? 1);
 }
 
 export async function listWeekLockAts(db: Database, leagueId: string): Promise<Date[]> {
@@ -207,9 +215,10 @@ export async function listWeekLockAts(db: Database, leagueId: string): Promise<D
   }
 
   const weeks = await getRegularSeasonWeeks(db, leagueId);
+  const { championshipWeek } = playoffWeeks(weeks);
   const weekGames = await loadRegGames(db, league.seasonId);
   const lockAts: Date[] = [];
-  for (let week = 1; week <= weeks; week += 1) {
+  for (let week = 1; week <= championshipWeek; week += 1) {
     const lockAt = weekLockAt(weekGames, week);
     if (lockAt) {
       lockAts.push(lockAt);
@@ -266,6 +275,7 @@ export async function ensureSchedule(db: Database, leagueId: string): Promise<vo
       pairings.map((row) => ({
         leagueId,
         week: row.week,
+        kind: "regular",
         homeFantasyTeamId: row.homeTeamId,
         awayFantasyTeamId: row.awayTeamId,
       })),
@@ -496,6 +506,238 @@ function scoreSide(
   return { points, players: playersDto };
 }
 
+async function loadPlayoffSeedRows(
+  db: Database,
+  leagueId: string,
+): Promise<Array<{ seed: number; teamId: string }>> {
+  const rows = await db
+    .select({
+      seed: playoffSeeds.seed,
+      teamId: playoffSeeds.fantasyTeamId,
+    })
+    .from(playoffSeeds)
+    .where(eq(playoffSeeds.leagueId, leagueId));
+  return [...rows].sort((left, right) => left.seed - right.seed);
+}
+
+function seedsTuple(rows: Array<{ seed: number; teamId: string }>): PlayoffSeeds | null {
+  if (rows.length !== 4) {
+    return null;
+  }
+  const first = rows.find((row) => row.seed === 1)?.teamId;
+  const second = rows.find((row) => row.seed === 2)?.teamId;
+  const third = rows.find((row) => row.seed === 3)?.teamId;
+  const fourth = rows.find((row) => row.seed === 4)?.teamId;
+  if (!first || !second || !third || !fourth) {
+    return null;
+  }
+  return [first, second, third, fourth];
+}
+
+async function weekHasRegularMatchup(db: Database, leagueId: string, week: number): Promise<boolean> {
+  const rows = await db
+    .select({ kind: matchups.kind })
+    .from(matchups)
+    .where(and(eq(matchups.leagueId, leagueId), eq(matchups.week, week)));
+  return rows.some((row) => row.kind !== "playoff");
+}
+
+async function loadWeekMatchupSides(
+  db: Database,
+  leagueId: string,
+  week: number,
+): Promise<Array<{ id: string; kind: string; homeTeamId: string; awayTeamId: string }>> {
+  return db
+    .select({
+      id: matchups.id,
+      kind: matchups.kind,
+      homeTeamId: matchups.homeFantasyTeamId,
+      awayTeamId: matchups.awayFantasyTeamId,
+    })
+    .from(matchups)
+    .where(and(eq(matchups.leagueId, leagueId), eq(matchups.week, week)));
+}
+
+async function insertPlayoffMatchups(
+  db: Database,
+  leagueId: string,
+  week: number,
+  pairings: Array<{ homeTeamId: string; awayTeamId: string }>,
+): Promise<void> {
+  try {
+    await db.insert(matchups).values(
+      pairings.map((row) => ({
+        leagueId,
+        week,
+        kind: "playoff",
+        homeFantasyTeamId: row.homeTeamId,
+        awayFantasyTeamId: row.awayTeamId,
+      })),
+    );
+  } catch (error) {
+    if (!isUniqueViolation(error)) {
+      throw error;
+    }
+  }
+}
+
+export async function playoffsHaveStarted(db: Database, leagueId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ teamId: playoffSeeds.fantasyTeamId })
+    .from(playoffSeeds)
+    .where(eq(playoffSeeds.leagueId, leagueId))
+    .limit(1);
+  return Boolean(row);
+}
+
+async function loadPlayoffBracket(db: Database, leagueId: string): Promise<PlayoffBracketDto | null> {
+  const regularSeasonWeeks = await getRegularSeasonWeeks(db, leagueId);
+  const { semiWeek, championshipWeek } = playoffWeeks(regularSeasonWeeks);
+  const seedRows = await loadPlayoffSeedRows(db, leagueId);
+  if (seedRows.length === 0) {
+    return null;
+  }
+  const names = new Map<string, string>();
+  const teams = await db
+    .select({ id: fantasyTeams.id, name: fantasyTeams.name })
+    .from(fantasyTeams)
+    .where(eq(fantasyTeams.leagueId, leagueId));
+  for (const team of teams) {
+    names.set(team.id, team.name);
+  }
+  return {
+    semiWeek,
+    championshipWeek,
+    tradesClosed: true,
+    seeds: seedRows.map((row) => ({
+      seed: row.seed,
+      teamId: row.teamId,
+      teamName: names.get(row.teamId) ?? row.teamId,
+    })),
+  };
+}
+
+export async function ensurePlayoffBracket(db: Database, leagueId: string): Promise<void> {
+  const league = await requireActiveLeague(db, leagueId);
+  const regularSeasonWeeks = await getRegularSeasonWeeks(db, leagueId);
+  const { semiWeek, championshipWeek } = playoffWeeks(regularSeasonWeeks);
+  const weekGames = await loadRegGames(db, league.seasonId);
+  if (!regularWeekAllFinal(weekGames, regularSeasonWeeks)) {
+    return;
+  }
+  if (await weekHasRegularMatchup(db, leagueId, semiWeek)) {
+    return;
+  }
+  if (await weekHasRegularMatchup(db, leagueId, championshipWeek)) {
+    return;
+  }
+
+  let seedRows = await loadPlayoffSeedRows(db, leagueId);
+  let semiRows = await loadWeekMatchupSides(db, leagueId, semiWeek);
+
+  if (seedRows.length === 0 && semiRows.length === 0) {
+    const now = new Date();
+    const rules = await loadScoringRules(db, leagueId);
+    const teamRows = await db
+      .select({ id: fantasyTeams.id })
+      .from(fantasyTeams)
+      .where(eq(fantasyTeams.leagueId, leagueId));
+    const acc = new Map(teamRows.map((team) => [team.id, emptyStandingsRow(team.id)]));
+    for (let week = 1; week <= regularSeasonWeeks; week += 1) {
+      const locked = await ensureWeekLockedIfDue(db, leagueId, week, weekGames, now);
+      const statsByPlayer = await loadWeekStats(db, league.seasonId, week);
+      const lineups = await loadLineupsByTeam(db, leagueId, week, locked);
+      const weekMatchups = await db
+        .select({
+          homeTeamId: matchups.homeFantasyTeamId,
+          awayTeamId: matchups.awayFantasyTeamId,
+          kind: matchups.kind,
+        })
+        .from(matchups)
+        .where(and(eq(matchups.leagueId, leagueId), eq(matchups.week, week)));
+      for (const row of weekMatchups) {
+        if (row.kind === "playoff") {
+          continue;
+        }
+        const home = scoreSide(lineups.get(row.homeTeamId) ?? [], statsByPlayer, rules);
+        const away = scoreSide(lineups.get(row.awayTeamId) ?? [], statsByPlayer, rules);
+        applyMatchupToStandings(acc, {
+          homeTeamId: row.homeTeamId,
+          awayTeamId: row.awayTeamId,
+          homePoints: home.points,
+          awayPoints: away.points,
+        });
+      }
+    }
+    const seeds = seedPlayoffTeams(sortStandings([...acc.values()]));
+    if (!seeds) {
+      return;
+    }
+    try {
+      await db.insert(playoffSeeds).values(
+        seeds.map((teamId, index) => ({
+          leagueId,
+          seed: index + 1,
+          fantasyTeamId: teamId,
+        })),
+      );
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
+    }
+    seedRows = await loadPlayoffSeedRows(db, leagueId);
+  }
+
+  const tuple = seedsTuple(seedRows);
+  if (!tuple) {
+    return;
+  }
+
+  if (semiRows.length === 0) {
+    await insertPlayoffMatchups(db, leagueId, semiWeek, semiPairings(tuple));
+    semiRows = await loadWeekMatchupSides(db, leagueId, semiWeek);
+  }
+
+  const champRows = await loadWeekMatchupSides(db, leagueId, championshipWeek);
+  if (champRows.length > 0 || semiRows.length !== 2) {
+    return;
+  }
+  if (!regularWeekAllFinal(weekGames, semiWeek)) {
+    return;
+  }
+
+  const now = new Date();
+  const locked = await ensureWeekLockedIfDue(db, leagueId, semiWeek, weekGames, now);
+  const rules = await loadScoringRules(db, leagueId);
+  const statsByPlayer = await loadWeekStats(db, league.seasonId, semiWeek);
+  const lineups = await loadLineupsByTeam(db, leagueId, semiWeek, locked);
+  const seedByTeam = new Map(seedRows.map((row) => [row.teamId, row.seed]));
+  const semiResults = [];
+  for (const row of semiRows) {
+    const homeSeed = seedByTeam.get(row.homeTeamId);
+    const awaySeed = seedByTeam.get(row.awayTeamId);
+    if (homeSeed == null || awaySeed == null) {
+      return;
+    }
+    const home = scoreSide(lineups.get(row.homeTeamId) ?? [], statsByPlayer, rules);
+    const away = scoreSide(lineups.get(row.awayTeamId) ?? [], statsByPlayer, rules);
+    semiResults.push({
+      homeId: row.homeTeamId,
+      awayId: row.awayTeamId,
+      homePoints: home.points,
+      awayPoints: away.points,
+      homeSeed,
+      awaySeed,
+    });
+  }
+  const pairing = championshipPairing(semiResults, tuple);
+  if (!pairing) {
+    return;
+  }
+  await insertPlayoffMatchups(db, leagueId, championshipWeek, [pairing]);
+}
+
 export async function isCurrentWeekLineupLocked(db: Database, leagueId: string): Promise<boolean> {
   const [league] = await db
     .select({
@@ -509,8 +751,9 @@ export async function isCurrentWeekLineupLocked(db: Database, leagueId: string):
     return false;
   }
   const weeks = await getRegularSeasonWeeks(db, leagueId);
+  const { championshipWeek } = playoffWeeks(weeks);
   const weekGames = await loadRegGames(db, league.seasonId);
-  const currentWeek = deriveCurrentWeek(weekGames, weeks);
+  const currentWeek = deriveCurrentWeek(weekGames, championshipWeek);
   const [lockRow] = await db
     .select({ id: weekLocks.id })
     .from(weekLocks)
@@ -529,11 +772,13 @@ export async function getScoreboard(
 ): Promise<WeekScoreboardDto> {
   const league = await requireActiveLeague(db, leagueId);
   await ensureSchedule(db, leagueId);
+  await ensurePlayoffBracket(db, leagueId);
   const regularSeasonWeeks = await getRegularSeasonWeeks(db, leagueId);
+  const { championshipWeek } = playoffWeeks(regularSeasonWeeks);
   const weekGames = await loadRegGames(db, league.seasonId);
-  const currentWeek = deriveCurrentWeek(weekGames, regularSeasonWeeks);
+  const currentWeek = deriveCurrentWeek(weekGames, championshipWeek);
   const week = requestedWeek ?? currentWeek;
-  if (week < 1 || week > regularSeasonWeeks) {
+  if (week < 1 || week > championshipWeek) {
     throw new LeagueError("Invalid week", 400);
   }
 
@@ -588,19 +833,23 @@ export async function getScoreboard(
     week,
     currentWeek,
     regularSeasonWeeks,
+    kind: week > regularSeasonWeeks ? "playoff" : "regular",
     locked,
     lockedAt: locked && lockAt ? lockAt.toISOString() : locked ? now.toISOString() : null,
     secondsToLock,
     matchups: board,
+    playoffs: await loadPlayoffBracket(db, leagueId),
   };
 }
 
 export async function getStandings(db: Database, leagueId: string): Promise<StandingsRowDto[]> {
   const league = await requireActiveLeague(db, leagueId);
   await ensureSchedule(db, leagueId);
+  await ensurePlayoffBracket(db, leagueId);
   const regularSeasonWeeks = await getRegularSeasonWeeks(db, leagueId);
+  const { championshipWeek } = playoffWeeks(regularSeasonWeeks);
   const weekGames = await loadRegGames(db, league.seasonId);
-  const currentWeek = deriveCurrentWeek(weekGames, regularSeasonWeeks);
+  const currentWeek = deriveCurrentWeek(weekGames, championshipWeek);
   const now = new Date();
   const rules = await loadScoringRules(db, leagueId);
 
@@ -615,7 +864,8 @@ export async function getStandings(db: Database, leagueId: string): Promise<Stan
   const acc = new Map(teamRows.map((team) => [team.id, emptyStandingsRow(team.id)]));
   const names = new Map(teamRows.map((team) => [team.id, team.name]));
 
-  for (let week = 1; week <= currentWeek; week += 1) {
+  const standingsThrough = Math.min(currentWeek, regularSeasonWeeks);
+  for (let week = 1; week <= standingsThrough; week += 1) {
     const locked = await ensureWeekLockedIfDue(db, leagueId, week, weekGames, now);
     const statsByPlayer = await loadWeekStats(db, league.seasonId, week);
     const lineups = await loadLineupsByTeam(db, leagueId, week, locked);
@@ -625,6 +875,9 @@ export async function getStandings(db: Database, leagueId: string): Promise<Stan
       .where(and(eq(matchups.leagueId, leagueId), eq(matchups.week, week)));
 
     for (const row of weekMatchups) {
+      if (row.kind === "playoff") {
+        continue;
+      }
       const home = scoreSide(lineups.get(row.homeFantasyTeamId) ?? [], statsByPlayer, rules);
       const away = scoreSide(lineups.get(row.awayFantasyTeamId) ?? [], statsByPlayer, rules);
       applyMatchupToStandings(acc, {
@@ -636,6 +889,9 @@ export async function getStandings(db: Database, leagueId: string): Promise<Stan
     }
   }
 
+  const seedRows = await loadPlayoffSeedRows(db, leagueId);
+  const seedByTeam = new Map(seedRows.map((row) => [row.teamId, row.seed]));
+
   return sortStandings([...acc.values()]).map((row) => ({
     teamId: row.teamId,
     teamName: names.get(row.teamId) ?? row.teamId,
@@ -644,12 +900,14 @@ export async function getStandings(db: Database, leagueId: string): Promise<Stan
     ties: row.ties,
     pointsFor: row.pointsFor,
     pointsAgainst: row.pointsAgainst,
+    seed: seedByTeam.get(row.teamId) ?? null,
   }));
 }
 
 export async function getMatchupDetail(db: Database, leagueId: string, matchupId: string): Promise<MatchupDto> {
   const league = await requireActiveLeague(db, leagueId);
   await ensureSchedule(db, leagueId);
+  await ensurePlayoffBracket(db, leagueId);
 
   const [row] = await db
     .select()
@@ -680,6 +938,7 @@ export async function getMatchupDetail(db: Database, leagueId: string, matchupId
     id: row.id,
     leagueId,
     week: row.week,
+    kind: row.kind === "playoff" ? "playoff" : "regular",
     locked,
     home: { team: homeTeam, points: home.points, players: home.players },
     away: { team: awayTeam, points: away.points, players: away.players },

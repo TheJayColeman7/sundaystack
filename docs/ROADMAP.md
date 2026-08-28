@@ -28,7 +28,9 @@ Matchups, weekly lineups, fantasy scoring engine (skill + K; DEF = 0), totals, r
 
 **Done (0.5b):** two-team player trades. Instant accept; lazy expiry; no veto window.
 
-**Later in 0.5:** extra commissioner tools, playoffs.
+**In progress (0.5c):** 4-team playoffs (week 15 semis, week 16 championship). Lazy bracket; trades close when seeds exist.
+
+**Later in 0.5:** extra commissioner tools.
 
 ## Explicitly later
 

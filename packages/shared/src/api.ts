@@ -198,6 +198,7 @@ export interface MatchupDto {
   id: string;
   leagueId: string;
   week: number;
+  kind: "regular" | "playoff";
   locked: boolean;
   home: MatchupSideDto;
   away: MatchupSideDto;
@@ -217,10 +218,12 @@ export interface WeekScoreboardDto {
   week: number;
   currentWeek: number;
   regularSeasonWeeks: number;
+  kind: "regular" | "playoff";
   locked: boolean;
   lockedAt: string | null;
   secondsToLock: number | null;
   matchups: ScoreboardMatchupDto[];
+  playoffs: PlayoffBracketDto | null;
 }
 
 export interface StandingsRowDto {
@@ -231,6 +234,20 @@ export interface StandingsRowDto {
   ties: number;
   pointsFor: number;
   pointsAgainst: number;
+  seed: number | null;
+}
+
+export interface PlayoffSeedDto {
+  seed: number;
+  teamId: string;
+  teamName: string;
+}
+
+export interface PlayoffBracketDto {
+  semiWeek: number;
+  championshipWeek: number;
+  seeds: PlayoffSeedDto[];
+  tradesClosed: boolean;
 }
 
 export type WaiverTypeDto = "priority" | "faab";
@@ -292,6 +309,7 @@ export interface TradeDto {
 
 export interface TradeBoardDto {
   myTeamId: string | null;
+  tradesClosed: boolean;
   incoming: TradeDto[];
   outgoing: TradeDto[];
   leaguePending: TradeDto[];

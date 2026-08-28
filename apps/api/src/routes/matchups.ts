@@ -13,7 +13,7 @@ import {
 import { requireUser } from "../middleware";
 
 const uuidParam = z.string().uuid();
-const weekQuery = z.coerce.number().int().min(1).max(17).optional();
+const weekQuery = z.coerce.number().int().min(1).max(18).optional();
 
 function sendError(res: { status: (code: number) => { json: (body: unknown) => void } }, error: unknown): void {
   if (error instanceof LeagueError) {

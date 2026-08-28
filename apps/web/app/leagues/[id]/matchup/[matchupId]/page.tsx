@@ -111,7 +111,7 @@ export default function MatchupPage() {
     if (!matchup) {
       return "Matchup";
     }
-    return `Week ${matchup.week}`;
+    return matchup.kind === "playoff" ? `Week ${matchup.week} playoff` : `Week ${matchup.week}`;
   }, [matchup]);
 
   if (error && !matchup) {

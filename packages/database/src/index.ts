@@ -43,6 +43,7 @@ export {
   getStandings,
   isCurrentWeekLineupLocked,
   listWeekLockAts,
+  playoffsHaveStarted,
 } from "./queries/matchups";
 export {
   assertInstantAddAllowed,

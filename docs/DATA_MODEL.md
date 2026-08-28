@@ -45,6 +45,7 @@ leagues 1──* waiver_periods
 waiver_periods 1──* waiver_claims
 leagues 1──* trades
 trades 1──* trade_players
+leagues 1──* playoff_seeds
 ```
 
 ## Sports tables (0.1)
@@ -109,9 +110,9 @@ Autopick ranking uses counting stats from the latest ingested season (yards + TD
 
 ## Weekly games (0.4)
 
-H2H only. Regular season is NFL `REG` weeks 1–14. No playoffs. Fantasy points are **computed on read** (locked lineup × week stats × current league rules). Nothing writes points onto `player_game_stats` or `matchups`.
+H2H only. Regular season is NFL `REG` weeks 1–`regular_season_weeks` (default 14). Playoffs (0.5c) are weeks N+1 and N+2. Fantasy points are **computed on read** (locked lineup × week stats × current league rules). Nothing writes points onto `player_game_stats` or `matchups`.
 
-Schedule is generated lazily on first scoreboard fetch for an `active` league (circle round-robin, repeated to 14 weeks).
+Schedule is generated lazily on first scoreboard fetch for an `active` league (circle round-robin, repeated to `regular_season_weeks`). Playoff matchups are a **separate** lazy insert after regular-season NFL games for week N are all `final` — not folded into round-robin generation.
 
 Lineup **lock is lazy**: first authenticated scoreboard/matchup GET after the week’s earliest REG `kickoff_at` snapshots `roster_players` into `weekly_lineups`. `week_locks` marks the snapshot done. Before lock, scores use the live roster. After lock, the live roster can still change (drops and waiver awards) but **not** that week’s snapshot.
 
@@ -119,7 +120,7 @@ Starters score; bench is 0. DEF is 0 until DST ingest.
 
 ### matchups
 
-`league_id`, `week`, `home_fantasy_team_id`, `away_fantasy_team_id`. Unique home and away per `(league_id, week)`. Home ≠ away.
+`league_id`, `week`, `home_fantasy_team_id`, `away_fantasy_team_id`, `kind` (`regular` | `playoff`, default `regular`). Unique home and away per `(league_id, week)`. Home ≠ away. Playoff weeks do not require every team to play.
 
 ### weekly_lineups
 
@@ -161,7 +162,7 @@ Public `GET /api/players` stays unfiltered. The FA/waiver pool is a member-only 
 
 Sleeper-style: **propose → counterparty accepts → live roster swap in that request**. No veto window, no worker. Commissioner may cancel a **pending** offer only (not unwind a completed trade). Pending offers expire after 7 days, lazily on the next authenticated trades/scoreboard GET.
 
-Trades require `leagues.status = active`. They are allowed during FA and the waiver claim window (they are not instant FA adds). Execute mutates live `roster_players` only — never rewrite `weekly_lineups` for a locked week.
+Trades require `leagues.status = active`. They are allowed during FA and the waiver claim window (they are not instant FA adds) until playoff seeds exist, then propose/accept/reject are 409 `PLAYOFFS`. Cancel pending and lazy expiry still run. Execute mutates live `roster_players` only — never rewrite `weekly_lineups` for a locked week.
 
 Swap order: delete all `send` + `drop` rows on both sides, then insert incoming via `defaultAddSlot`. Unique `(league_id, player_id)` serializes races (Neon HTTP has no transactions); on failure, restore deleted rows.
 
@@ -174,6 +175,20 @@ A player may appear in only one `pending` trade (409 `PLAYER_IN_TRADE`). Drops a
 ### trade_players
 
 `trade_id`, `from_fantasy_team_id`, `player_id`, `role` (`send` | `drop`). Unique `(trade_id, player_id)`. `send` moves to the other team; `drop` is released on execute so that side stays at/under roster cap.
+
+## Playoffs (0.5c)
+
+4-team single elimination on NFL **REG** weeks `regular_season_weeks + 1` (semis: 1v4, 2v3) and `+ 2` (championship). Default 14 → weeks 15–16. POST games stay unused. League status stays `active`.
+
+Bracket is **lazy**: after all REG games for the last regular week are `final`, snapshot seeds 1–4 from regular standings (wins, then PF, then `teamId`) into `playoff_seeds` and insert two semi matchups (`kind = playoff`). After both semis have a winner, insert one championship matchup. Do not re-seed from live standings (scoring stays mutable). Tied playoff game: higher seed advances. No consolation, no re-seed.
+
+Standings W-L-T / PF / PA use **regular** matchups only. Playoff games never change the table. Trades close when seeds exist. FA/waivers keep the 0.5a calendar; lineup locks include playoff weeks.
+
+If playoff week numbers already have matchups (a 16–17 week regular season), skip generation.
+
+### playoff_seeds
+
+`league_id`, `seed` (1–4), `fantasy_team_id`. Unique `(league_id, seed)` and unique `(league_id, fantasy_team_id)`. Written once; never updated.
 
 ## Identity
 
@@ -194,4 +209,4 @@ Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match fu
 - Sports tables: `SELECT` for `anon` and `authenticated`.
 - `users`: read/update own row only.
 - Fantasy tables: not readable by `anon`. `authenticated` may select leagues they belong to.
-- Express uses the database owner (bypasses RLS). League, draft, matchup, waiver, and trade rules are enforced in the API.
+- Express uses the database owner (bypasses RLS). League, draft, matchup, waiver, trade, and playoff rules are enforced in the API.

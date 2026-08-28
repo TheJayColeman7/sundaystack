@@ -50,6 +50,8 @@ export type {
   TradeDto,
   TradePlayerDto,
   TradeStatusDto,
+  PlayoffBracketDto,
+  PlayoffSeedDto,
 } from "./api";
 export type { ScoringPreset, ScoringRule, StatKey } from "./scoring";
 export {
@@ -121,3 +123,12 @@ export {
   previewTradeRosters,
   validateTradeOffer,
 } from "./trade";
+export type { PlayoffPairing, PlayoffSeeds } from "./playoff";
+export {
+  championshipPairing,
+  playoffWeeks,
+  playoffWinner,
+  regularWeekAllFinal,
+  seedPlayoffTeams,
+  semiPairings,
+} from "./playoff";

@@ -243,7 +243,7 @@ export default function RosterPage() {
             <Link href={`/leagues/${params.id}/waivers`} className="text-[11px] text-turf hover:underline">
               {waivers?.window === "waiver" ? "Waiver claims" : "Free agents / waivers"}
             </Link>
-            {me && me.id !== roster.team.ownerUserId ? (
+            {me && me.id !== roster.team.ownerUserId && !scoreboard?.playoffs ? (
               <Link
                 href={`/leagues/${params.id}/trades?with=${params.teamId}`}
                 className="text-[11px] text-turf hover:underline"

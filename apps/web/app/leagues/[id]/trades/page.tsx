@@ -153,11 +153,15 @@ export default function TradesPage() {
           ← {league.name}
         </Link>
         <h1 className="text-xl font-semibold">Trades</h1>
-        <p className="text-xs text-zinc-500">Two-team player swaps. Accept processes immediately. Offers expire in 7 days.</p>
+        <p className="text-xs text-zinc-500">
+          {board.tradesClosed
+            ? "Trades closed when playoffs started. You can still cancel a pending offer."
+            : "Two-team player swaps. Accept processes immediately. Offers expire in 7 days."}
+        </p>
       </div>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
-      {board.myTeamId ? (
+      {board.myTeamId && !board.tradesClosed ? (
         <section className="rounded border border-line bg-panel p-3">
           <h2 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Propose</h2>
           <select
@@ -253,22 +257,26 @@ export default function TradesPage() {
                   {trade.proposerTeamName}: {tradeSummary(trade, board.myTeamId)}
                 </span>
                 <span className="flex gap-2">
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => void act(trade.id, "accept")}
-                    className="text-xs text-turf disabled:opacity-50"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => void act(trade.id, "reject")}
-                    className="text-xs text-red-400 disabled:opacity-50"
-                  >
-                    Reject
-                  </button>
+                  {board.tradesClosed ? null : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => void act(trade.id, "accept")}
+                        className="text-xs text-turf disabled:opacity-50"
+                      >
+                        Accept
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => void act(trade.id, "reject")}
+                        className="text-xs text-red-400 disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
                 </span>
               </li>
             ))}

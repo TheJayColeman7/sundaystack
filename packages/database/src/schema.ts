@@ -405,6 +405,7 @@ export const matchups = pgTable(
       .notNull()
       .references(() => leagues.id, { onDelete: "cascade" }),
     week: integer("week").notNull(),
+    kind: text("kind").notNull().default("regular"),
     homeFantasyTeamId: uuid("home_fantasy_team_id")
       .notNull()
       .references(() => fantasyTeams.id, { onDelete: "cascade" }),
@@ -416,6 +417,25 @@ export const matchups = pgTable(
   (table) => [
     unique("matchups_league_id_week_home_unique").on(table.leagueId, table.week, table.homeFantasyTeamId),
     unique("matchups_league_id_week_away_unique").on(table.leagueId, table.week, table.awayFantasyTeamId),
+  ],
+);
+
+export const playoffSeeds = pgTable(
+  "playoff_seeds",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    seed: integer("seed").notNull(),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    ...timestamps,
+  },
+  (table) => [
+    unique("playoff_seeds_league_id_seed_unique").on(table.leagueId, table.seed),
+    unique("playoff_seeds_league_id_team_unique").on(table.leagueId, table.fantasyTeamId),
   ],
 );
 

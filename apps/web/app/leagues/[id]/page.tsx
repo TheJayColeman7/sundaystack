@@ -184,6 +184,7 @@ export default function LeaguePage() {
                     <tr key={row.teamId}>
                       <td className="py-1.5">
                         <Link href={`/leagues/${league.id}/team/${row.teamId}`} className="hover:text-turf">
+                          {row.seed != null ? `${row.seed}. ` : ""}
                           {row.teamName}
                         </Link>
                       </td>
@@ -201,9 +202,31 @@ export default function LeaguePage() {
             )}
           </section>
 
+          {scoreboard?.playoffs ? (
+            <section>
+              <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Playoffs</h2>
+              <p className="mb-2 text-xs text-zinc-400">
+                Weeks {scoreboard.playoffs.semiWeek}–{scoreboard.playoffs.championshipWeek}. Trades are closed.
+              </p>
+              <ol className="text-sm">
+                {scoreboard.playoffs.seeds.map((row) => (
+                  <li key={row.teamId} className="py-0.5">
+                    <span className="font-mono text-xs text-zinc-500">{row.seed}.</span>{" "}
+                    <Link href={`/leagues/${league.id}/team/${row.teamId}`} className="hover:text-turf">
+                      {row.teamName}
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+
           <section>
             <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
               Week {scoreboard?.week ?? "—"} scoreboard
+              {scoreboard?.kind === "playoff" ? (
+                <span className="ml-2 font-normal normal-case tracking-normal text-turf">Playoff</span>
+              ) : null}
               {scoreboard?.locked ? (
                 <span className="ml-2 font-normal normal-case tracking-normal text-amber-400">Locked</span>
               ) : null}

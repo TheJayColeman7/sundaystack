@@ -10,7 +10,7 @@ import {
   type TradeOfferInput,
 } from "@sundaystack/shared";
 import type { Database } from "../client";
-import { fantasyTeams, players, rosterPlayers, tradePlayers, trades } from "../schema";
+import { fantasyTeams, players, playoffSeeds, rosterPlayers, tradePlayers, trades } from "../schema";
 import { LeagueError, getFantasyTeam, getLeagueSettings, getLeagueStatus, isUniqueViolation } from "./leagues";
 import { addRosterPlayer, getRoster } from "./rosters";
 
@@ -22,6 +22,26 @@ async function requireActiveLeague(db: Database, leagueId: string): Promise<void
   if (status !== "active") {
     throw new LeagueError("Trades start after the draft completes", 409, "NOT_ACTIVE");
   }
+}
+
+async function assertTradesOpen(db: Database, leagueId: string): Promise<void> {
+  const [row] = await db
+    .select({ teamId: playoffSeeds.fantasyTeamId })
+    .from(playoffSeeds)
+    .where(eq(playoffSeeds.leagueId, leagueId))
+    .limit(1);
+  if (row) {
+    throw new LeagueError("Trades closed when playoffs started", 409, "PLAYOFFS");
+  }
+}
+
+async function playoffsClosedTrades(db: Database, leagueId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ teamId: playoffSeeds.fantasyTeamId })
+    .from(playoffSeeds)
+    .where(eq(playoffSeeds.leagueId, leagueId))
+    .limit(1);
+  return Boolean(row);
 }
 
 async function myTeamId(db: Database, leagueId: string, userId: string): Promise<string | null> {
@@ -314,7 +334,7 @@ export async function getTradeBoard(db: Database, leagueId: string, userId: stri
   );
   const recent = dtos.filter((row) => row.status !== "pending").slice(0, 20);
 
-  return { myTeamId: teamId, incoming, outgoing, leaguePending, recent };
+  return { myTeamId: teamId, tradesClosed: await playoffsClosedTrades(db, leagueId), incoming, outgoing, leaguePending, recent };
 }
 
 export async function proposeTrade(
@@ -330,6 +350,7 @@ export async function proposeTrade(
 ): Promise<TradeDto> {
   await requireActiveLeague(db, input.leagueId);
   await expireTradesIfDue(db, input.leagueId);
+  await assertTradesOpen(db, input.leagueId);
   const proposerTeamId = await myTeamId(db, input.leagueId, input.userId);
   if (!proposerTeamId) {
     throw new LeagueError("You need a team in this league to propose a trade", 403);
@@ -438,6 +459,7 @@ export async function acceptTrade(
   input: { leagueId: string; userId: string; tradeId: string },
 ): Promise<TradeDto> {
   await requireActiveLeague(db, input.leagueId);
+  await assertTradesOpen(db, input.leagueId);
   const row = await loadPendingTrade(db, input.leagueId, input.tradeId);
   const teamId = await myTeamId(db, input.leagueId, input.userId);
   if (teamId !== row.counterpartyTeamId) {
@@ -504,6 +526,7 @@ export async function rejectTrade(
   input: { leagueId: string; userId: string; tradeId: string },
 ): Promise<TradeDto> {
   await requireActiveLeague(db, input.leagueId);
+  await assertTradesOpen(db, input.leagueId);
   const row = await loadPendingTrade(db, input.leagueId, input.tradeId);
   const teamId = await myTeamId(db, input.leagueId, input.userId);
   if (teamId !== row.counterpartyTeamId) {
