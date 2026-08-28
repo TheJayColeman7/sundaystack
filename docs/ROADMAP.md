@@ -2,20 +2,18 @@
 
 ## Done: Phase 0.1 — Foundation
 
-- Monorepo (pnpm, Turborepo, TypeScript strict)
-- Supabase Postgres schema for sports data + `users` profile
-- Sports data provider layer
-- nflverse ingest for seasons 2024–2026
-- Express `GET /api/players` (`search`, `team`, `position`, `limit`, `offset`)
-- Next.js shell (no player UI)
+- Monorepo, sports schema, nflverse ingest, public `GET /api/players`
 
-Ingest has loaded teams, players, games, and weekly stats. `GET /api/players` returns real rows.
+## Current: Phase 0.2 — Fantasy League System
 
-**Next:** player search UI and a basic player profile page (still no leagues). Then Phase 0.2.
+- Dev login (Supabase-shaped user IDs)
+- Create / join league, members, fantasy teams
+- Roster configuration and scoring **settings** (no point totals yet)
+- Manual add/drop, starters / bench / lineup validation
+- Player search picker and a thin player profile
+- Seeded team DST (`DEF`) players
 
-## Phase 0.2 — Fantasy League System
-
-Create/join league, members, fantasy teams, settings, roster configuration, scoring settings, rosters, starters, bench, lineup management.
+**Out of this phase:** snake draft (0.3), weekly matchups and fantasy points (0.4), waivers/FAAB/trades (0.5), real Supabase Auth.
 
 ## Phase 0.3 — Draft System
 
@@ -33,10 +31,8 @@ Free agents, waivers (priority and FAAB), trades, commissioner tools, playoffs.
 
 ## Explicitly later
 
-AI roster / trade / start-sit / waiver / draft assistants. Keep the data model capable of feeding them (league scoring, rosters, injuries, usage) without building the products now.
+AI roster / trade / start-sit / waiver / draft assistants.
 
-## MVP fantasy scope (when leagues start)
+## MVP fantasy scope
 
-NFL, redraft, 8–14 teams, snake draft, PPR / half PPR / standard, 1QB, FAAB or waiver priority.
-
-Architecture should not block: keepers, dynasty, superflex/2QB, TE premium, auction, IR, taxi, 4–32 teams.
+NFL, redraft, 8–14 teams, snake draft (0.3), PPR / half PPR / standard, 1QB, FAAB or waiver priority (0.5).

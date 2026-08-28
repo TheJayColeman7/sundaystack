@@ -32,6 +32,9 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.22.2
+      jose:
+        specifier: ^6.0.12
+        version: 6.2.10
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -54,6 +57,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@sundaystack/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       next:
         specifier: ^15.5.2
         version: 15.5.24(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -94,6 +100,9 @@ importers:
       '@sundaystack/shared':
         specifier: workspace:*
         version: link:../shared
+      dotenv:
+        specifier: ^16.6.1
+        version: 16.6.1
       drizzle-orm:
         specifier: ^0.44.5
         version: 0.44.7(@neondatabase/serverless@1.1.0)(postgres@3.4.9)
@@ -104,11 +113,21 @@ importers:
       '@types/node':
         specifier: ^22.18.0
         version: 22.20.1
+      tsx:
+        specifier: ^4.20.5
+        version: 4.23.12
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
 
-  packages/shared: {}
+  packages/shared:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
 
   packages/sports-data:
     dependencies:
@@ -1203,6 +1222,9 @@ packages:
   jiti@1.21.7:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
     hasBin: true
+
+  jose@6.2.10:
+    resolution: {integrity: sha512-iiW7J9qRFlGxvCOIBDBDxFePQSn7ZMAnrYGhrrOo6siO/MIqwfyilLR27pkfDgUk+raLuzADS8A3S/KLBisc0g==}
 
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
@@ -2544,6 +2566,8 @@ snapshots:
   is-number@7.0.0: {}
 
   jiti@1.21.7: {}
+
+  jose@6.2.10: {}
 
   js-tokens@9.0.1: {}
 

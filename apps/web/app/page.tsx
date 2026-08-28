@@ -1,19 +1,24 @@
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 px-6 py-16">
-      <p className="text-xs font-medium uppercase tracking-[0.2em] text-turf">Phase 0.1</p>
+    <main className="flex min-h-[70vh] flex-col justify-center gap-5">
+      <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-turf">Phase 0.2</p>
       <h1 className="text-4xl font-semibold tracking-tight">SundayStack</h1>
-      <p className="max-w-xl text-sm leading-6 text-zinc-400">
-        Foundation is API-first. Player search lives on Express, not in this Next.js app. UI comes
-        after ingest and <code className="text-zinc-200">GET /api/players</code> return real NFL
-        rows.
+      <p className="max-w-lg text-sm leading-6 text-zinc-400">
+        Create a league, invite a second manager, fill a roster from the NFL player pool. Scoring
+        rules are stored now; weekly points come later.
       </p>
-      <div className="rounded-md border border-line bg-panel p-4 font-mono text-xs leading-6 text-zinc-300">
-        <div>{apiUrl}/health</div>
-        <div>{apiUrl}/api/players?search=mahomes&position=QB</div>
-        <div>{apiUrl}/api/players?team=KC&limit=10</div>
+      <div className="flex gap-3 text-sm">
+        <Link
+          href="/login"
+          className="rounded bg-turf px-3 py-1.5 font-medium text-ink hover:bg-emerald-400"
+        >
+          Dev sign in
+        </Link>
+        <Link href="/leagues" className="rounded border border-line px-3 py-1.5 hover:border-turf">
+          Leagues
+        </Link>
       </div>
     </main>
   );

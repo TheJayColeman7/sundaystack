@@ -1,11 +1,21 @@
 import {
   integer,
+  numeric,
+  pgSchema,
   pgTable,
   text,
   timestamp,
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+
+export const authSchema = pgSchema("auth");
+
+export const authUsers = authSchema.table("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -197,4 +207,113 @@ export const playerGameStats = pgTable(
     ...timestamps,
   },
   (table) => [unique("player_game_stats_player_id_game_id_unique").on(table.playerId, table.gameId)],
+);
+
+export const leagues = pgTable("leagues", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sportId: uuid("sport_id")
+    .notNull()
+    .references(() => sports.id),
+  seasonId: uuid("season_id")
+    .notNull()
+    .references(() => seasons.id),
+  name: text("name").notNull(),
+  commissionerUserId: uuid("commissioner_user_id")
+    .notNull()
+    .references(() => users.id),
+  inviteCode: text("invite_code").notNull().unique(),
+  status: text("status").notNull().default("pre_draft"),
+  maxTeams: integer("max_teams").notNull().default(12),
+  ...timestamps,
+});
+
+export const leagueMembers = pgTable(
+  "league_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    role: text("role").notNull(),
+    ...timestamps,
+  },
+  (table) => [unique("league_members_league_id_user_id_unique").on(table.leagueId, table.userId)],
+);
+
+export const fantasyTeams = pgTable(
+  "fantasy_teams",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id),
+    name: text("name").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique("fantasy_teams_league_id_owner_user_id_unique").on(table.leagueId, table.ownerUserId),
+  ],
+);
+
+export const leagueSettings = pgTable("league_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leagueId: uuid("league_id")
+    .notNull()
+    .unique()
+    .references(() => leagues.id, { onDelete: "cascade" }),
+  qb: integer("qb").notNull().default(1),
+  rb: integer("rb").notNull().default(2),
+  wr: integer("wr").notNull().default(2),
+  te: integer("te").notNull().default(1),
+  flex: integer("flex").notNull().default(1),
+  superflex: integer("superflex").notNull().default(0),
+  k: integer("k").notNull().default(1),
+  def: integer("def").notNull().default(1),
+  bench: integer("bench").notNull().default(6),
+  ir: integer("ir").notNull().default(0),
+  ...timestamps,
+});
+
+export const leagueScoringRules = pgTable(
+  "league_scoring_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    statKey: text("stat_key").notNull(),
+    pointsPer: numeric("points_per", { precision: 8, scale: 4 }).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique("league_scoring_rules_league_id_stat_key_unique").on(table.leagueId, table.statKey),
+  ],
+);
+
+export const rosterPlayers = pgTable(
+  "roster_players",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    slot: text("slot").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique("roster_players_fantasy_team_id_player_id_unique").on(table.fantasyTeamId, table.playerId),
+    unique("roster_players_league_id_player_id_unique").on(table.leagueId, table.playerId),
+  ],
 );

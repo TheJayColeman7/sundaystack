@@ -8,16 +8,19 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:dst": "tsx src/cli/seed-dst.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
     "@sundaystack/shared": "workspace:*",
     "drizzle-orm": "^0.44.5",
+    "dotenv": "^16.6.1",
     "postgres": "^3.4.7"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
+    "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }
 }

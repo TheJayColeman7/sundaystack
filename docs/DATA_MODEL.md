@@ -1,16 +1,16 @@
 # Data Model
 
-Foundation schema only. Fantasy league tables are intentionally absent.
-
 Canonical SQL: `supabase/migrations`. Drizzle: `packages/database/src/schema.ts`.
+
+Sports tables (Phase 0.1) stay separate from fantasy tables (Phase 0.2). Counting stats still have **no fantasy points**. Scoring rules live on the league; the engine that applies them is Phase 0.4.
 
 ## Principles
 
 - UUID primary keys for every application object.
 - External provider IDs live in mapping tables, unique on `(provider, external_id)`.
 - `created_at` / `updated_at` on every table.
-- Counting stats only on `player_game_stats`. **No fantasy points.**
-- `players.team_id` is the **current** roster team (nullable). Historical team is on stats/games. This denorm exists so player search can filter by team without a roster history join.
+- `players.team_id` is the **current** NFL roster team (nullable).
+- `roster_players.league_id` is an intentional denorm so a player can appear on only one fantasy team per league.
 
 ## Entity relationship
 
@@ -19,72 +19,72 @@ auth.users 1──1 public.users
 
 sports 1──* teams 1──* team_external_ids
 sports 1──* players 1──* player_external_ids
-teams  1──* players          (current team, nullable)
+teams  1──* players
 
 sports 1──* seasons 1──* games 1──* game_external_ids
-teams  1──* games (home)
-teams  1──* games (away)
-
 players 1──* player_game_stats
 games   1──* player_game_stats
-seasons 1──* player_game_stats
+
+users 1──* leagues (commissioner)
+leagues 1──* league_members
+leagues 1──* fantasy_teams
+leagues 1──1 league_settings
+leagues 1──* league_scoring_rules
+fantasy_teams 1──* roster_players
+players 1──* roster_players
 ```
 
-## Tables
+## Sports tables (0.1)
 
-### users
+Unchanged: `users`, `sports`, `teams`, `team_external_ids`, `players`, `player_external_ids`, `seasons`, `games`, `game_external_ids`, `player_game_stats`.
 
-Profile row. `id` = `auth.users.id`. Signup trigger inserts a row. No passwords here.
+### DST players
 
-### sports
+Team defense is not in nflverse player stats. We seed 32 `players` rows with `position = DEF` (e.g. “Chiefs D/ST”), `team_id` set to that franchise, and `player_external_ids.provider = sundaystack`. Kickers come from nflverse.
 
-Reference data. Seeded with `nfl`. Unique `code`.
+## Fantasy tables (0.2)
 
-### teams
+### leagues
 
-NFL franchises. Unique `(sport_id, abbreviation)` using nflverse abbreviations (`KC`, `WAS`, `LAR`, …).
+`sport_id`, `season_id`, `name`, `commissioner_user_id`, unique `invite_code`, `status` (`pre_draft` | `active`), `max_teams` (8–14).
 
-### team_external_ids
+### league_members
 
-`provider` examples: `nflverse`, `gsis`. `external_id` is the provider's team key (usually the same abbreviation).
+Unique `(league_id, user_id)`. `role` is `commissioner` or `member`.
 
-### players
+### fantasy_teams
 
-Identity is our UUID. Names, `position` (text, not a DB enum), jersey, status, headshot. Rows without a GSIS id are skipped at ingest because weekly stats join on GSIS.
+One team per member. Unique `(league_id, owner_user_id)`.
 
-### player_external_ids
+### league_settings
 
-Stored in Phase 0.1 when present on the roster CSV: `gsis`, `sleeper`, `espn`, `pfr`. Unique `(provider, external_id)`.
+1:1 with league. Slot counts: `qb`, `rb`, `wr`, `te`, `flex`, `superflex` (default 0), `k`, `def`, `bench`, `ir` (default 0).
 
-### seasons
+### league_scoring_rules
 
-Unique `(sport_id, year)`. Regular vs postseason is on `games.season_type`, not a separate season row.
+Unique `(league_id, stat_key)` with `points_per` numeric. Presets (Standard / Half PPR / PPR) expand to these rows. **Not** stored on `player_game_stats`.
 
-### games
+### roster_players
 
-`week`, `season_type` (`PRE` | `REG` | `POST`), home/away FKs, `kickoff_at`, `status` (`scheduled` | `in_progress` | `final` | `cancelled`), scores. Unique `(season_id, week, season_type, home_team_id, away_team_id)`.
+Current roster + lineup slot (`QB` | `RB` | `WR` | `TE` | `FLEX` | `K` | `DEF` | `BENCH`). Unique `(fantasy_team_id, player_id)` and unique `(league_id, player_id)`. Weekly lineups are Phase 0.4.
 
-### game_external_ids
+## Identity
 
-nflverse/Lee Sharpe `game_id` (e.g. `2024_01_BAL_KC`) stored as `provider = nflverse`.
-
-### player_game_stats
-
-One row per player per game. Unique `(player_id, game_id)`. Typed integer columns for fantasy-relevant counting stats (pass / rush / rec / fumbles / 2PT / kicking). `season_id` and `week` are stored for filters. Advanced metrics (EPA, air yards) are out of scope.
+Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match future Supabase Auth (`public.users.id` = `auth.users.id`). No passwords.
 
 ## Ingest identity
 
 | Entity | Join key |
 |--------|----------|
 | Player | GSIS (`00-0033873`) |
+| DST player | `sundaystack` / `dst-{ABBR}` |
 | Team | nflverse abbreviation |
 | Game | nflverse `game_id` |
 | Stats | GSIS + `game_id` |
-
-Rows missing GSIS are skipped and counted in the ingest log.
 
 ## RLS
 
 - Sports tables: `SELECT` for `anon` and `authenticated`.
 - `users`: read/update own row only.
-- Ingest uses the Postgres role (bypasses RLS).
+- Fantasy tables: not readable by `anon`. `authenticated` may select leagues they belong to.
+- Express uses the database owner (bypasses RLS). League rules are enforced in the API.

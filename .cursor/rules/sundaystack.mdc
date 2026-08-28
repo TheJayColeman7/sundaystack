@@ -13,7 +13,7 @@ Initial goal: a working **NFL Fantasy Football MVP** using **free data sources a
 
 See `docs/ROADMAP.md` for the current phase. See `docs/ARCHITECTURE.md` and `docs/DATA_MODEL.md` before changing structure or schema.
 
-**Current status:** Phase 0.1 foundation is in place (nflverse ingest + public `GET /api/players`). Next work is player search UI and a basic player profile, still with no fantasy league tables. Then Phase 0.2.
+**Current status:** Phase 0.2 is in place — Express **dev login**, leagues, roster add/drop, lineup validation, player search on the roster picker, thin player profile, seeded team DST. Scoring **rules** are stored; fantasy **points** are Phase 0.4. Next work is Phase 0.3 (snake draft). Database is still Neon (Docker/Supabase unavailable locally; outbound 5432 blocked).
 
 ## Core Rule
 
@@ -48,11 +48,11 @@ Language          TypeScript (strict). Avoid `any` unless absolutely necessary.
 Web               Next.js, React, Tailwind CSS
 API               Express.js on Node.js (all HTTP APIs live here; do not duplicate them in Next.js)
 Mobile            React Native + Expo — later
-Database          PostgreSQL. Intended platform is Supabase. Phase 0.1 currently uses a free Neon project (Docker/Supabase were unavailable locally; outbound 5432 is blocked here).
-Auth              Supabase Auth when provisioned (`public.users.id` = `auth.users.id`). Public sports reads do not require auth.
+Database          PostgreSQL. Intended platform is Supabase. Currently a free Neon project (Docker/Supabase unavailable locally; outbound 5432 blocked).
+Auth              Express **dev login** (email + display name, no password) upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Session via `SESSION_SECRET` (Bearer or httpOnly cookie). Replace with Supabase Auth later without changing league FKs. Public sports reads (`GET /api/players`, `GET /api/players/:id`) do not require auth. League routes do.
 Realtime          Supabase Realtime initially; WebSockets later if needed
 Cache             Upstash Redis later if needed
-Hosting           Vercel (web). Express is local-first. Defaults are web 3000 / API 3001; use `.env` (`API_PORT`, `NEXT_PUBLIC_API_URL`) when those are taken.
+Hosting           Vercel (web). Express is local-first. Defaults are web 3000 / API 3001; this machine uses 3002 / 3010. CORS origin is `API_CORS_ORIGIN` — do not hardcode 3000. Next.js does not auto-load the repo-root `.env`; `apps/web/next.config.ts` must inject `NEXT_PUBLIC_API_URL`.
 Source control    GitHub
 Repo / packages   sundaystack / @sundaystack/*
 ```
@@ -63,12 +63,12 @@ Do not scaffold the full long-term tree until that phase starts.
 
 ```text
 sundaystack/
-├── apps/web/                 # Next.js UI
-├── apps/api/                 # Express REST
-├── packages/shared/          # domain types, enums, API DTOs
-├── packages/database/        # Drizzle schema + queries (mirrors SQL)
+├── apps/web/                 # Next.js UI (login, leagues, roster, player profile)
+├── apps/api/                 # Express REST (dev session + leagues + public players)
+├── packages/shared/          # Domain types, scoring presets, lineup validation, API DTOs
+├── packages/database/        # Drizzle schema + queries (sports + fantasy; DST seed CLI)
 ├── packages/sports-data/     # SportsDataProvider + nflverse + ingest CLI
-├── supabase/migrations/      # canonical SQL
+├── supabase/migrations/      # Canonical SQL
 └── docs/
 ```
 
@@ -82,7 +82,7 @@ Prefer simple solutions over premature microservices. Never make large architect
 
 ## Sports data
 
-Phase 0.1 primary source: **nflverse** (players, rosters, teams, schedules, weekly stats). Play-by-play, snaps, injuries, and advanced stats come later.
+Phase 0.1 primary source: **nflverse** (players, rosters, teams, schedules, weekly stats). Play-by-play, snaps, injuries, and advanced stats come later. Team DST is **not** in nflverse — seed 32 `players` with `position = DEF` and `player_external_ids.provider = sundaystack`. Kickers come from nflverse.
 
 Sleeper is for later import of users/leagues/drafts/matchups — still normalized into our models.
 
@@ -107,7 +107,7 @@ The scoring engine (future `packages/fantasy-engine`) must support Standard, Hal
 
 ## Database
 
-Keep real-world sports data and fantasy application data logically separated. Do not create fantasy league tables before that phase.
+Keep real-world sports data and fantasy application data logically separated. Phase 0.2 fantasy tables exist: `leagues`, `league_members`, `fantasy_teams`, `league_settings`, `league_scoring_rules`, `roster_players`. Do not add drafts, matchups, or waivers before those phases. Player search UI is the roster add-player picker plus `/players/[id]` — there is no standalone Players directory.
 
 Use UUID PKs, `created_at`/`updated_at`, FKs, constraints, and indexes. Avoid derived data unless there is a performance reason (`players.team_id` as current team is an intentional denorm). Use JSONB only when it actually makes sense — not for major business objects.
 
@@ -124,7 +124,7 @@ Use UUID PKs, `created_at`/`updated_at`, FKs, constraints, and indexes. Avoid de
 
 ## Testing
 
-Prioritize tests for: data normalization, fantasy scoring, draft rules, roster/lineup validation, waivers, trades, standings, playoff seeding. Scoring should have extensive unit tests when that package exists.
+Prioritize tests for: data normalization, scoring **presets**, roster/lineup validation, draft rules, waivers, trades, standings, playoff seeding. Fantasy **point** scoring should have extensive unit tests when `packages/fantasy-engine` exists. Presets and lineup rules live in `packages/shared` today.
 
 ## Cost
 
@@ -132,7 +132,7 @@ Target **$0/month**. Use free tiers. Do not introduce a paid API, database, host
 
 ## UI (when we build UI)
 
-Feel: Sleeper + modern sportsbook + fantasy analytics. Dark-mode friendly, clean, dense where useful, mobile-first. Avoid giant whitespace, excessive gradients, overly rounded chrome, generic AI SaaS look, unnecessary animation.
+Feel: Sleeper + modern sportsbook + fantasy analytics. Dark-mode friendly, clean, dense where useful, mobile-first. Avoid giant whitespace, excessive gradients, overly rounded chrome, generic AI SaaS look, unnecessary animation. All HTTP APIs stay on Express; the web app fetches `NEXT_PUBLIC_API_URL` with credentials.
 
 ## How to work
 

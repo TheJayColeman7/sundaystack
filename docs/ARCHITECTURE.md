@@ -1,6 +1,6 @@
 # Architecture
 
-SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.1 delivers sports data ingestion and a public player search API. Fantasy leagues, scoring, drafts, and player UI come later.
+SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.1 is sports data ingestion and public player search. Phase 0.2 adds Express **dev login**, fantasy leagues, roster add/drop, and lineup validation. Fantasy **points** and weekly matchups stay in Phase 0.4 (`packages/fantasy-engine` is still deferred).
 
 ## Why this shape
 
@@ -25,18 +25,18 @@ Ingest CLI  →  PostgreSQL (UUID PKs + external ID maps)
         ↓
 packages/database queries
         ↓
-Express GET /api/players
+Express REST (public players; session for leagues)
         ↓
-Next.js (later) / React Native (later)
+Next.js web app
 ```
 
 ## Workspace
 
 ```text
-apps/web                 Next.js App Router + Tailwind (shell only in 0.1)
-apps/api                 Express REST
-packages/shared          Domain types, enums, API DTOs
-packages/database        Drizzle schema + player queries
+apps/web                 Next.js App Router + Tailwind (login, leagues, roster, player)
+apps/api                 Express REST (dev session + leagues + public players)
+packages/shared          Domain types, scoring presets, lineup validation, API DTOs
+packages/database        Drizzle schema + queries (sports + fantasy)
 packages/sports-data     SportsDataProvider, NflverseProvider, MockProvider, ingest
 supabase/migrations      Canonical PostgreSQL
 docs/
@@ -60,10 +60,12 @@ CSV column names and nflverse field types stay inside `packages/sports-data/src/
 
 | Process | Port | Role |
 |---------|------|------|
-| `apps/web` | 3000 | UI |
-| `apps/api` | 3001 | REST |
+| `apps/web` | 3000 (or `3002` if taken) | UI |
+| `apps/api` | 3001 (or `3010` if taken) | REST |
 
-`GET /api/players` is public. Auth is scaffolded (`public.users` ↔ `auth.users`) but does not gate sports reads.
+Public (no session): `GET /api/players`, `GET /api/players/:id`.
+
+Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League routes require a session. CORS origin comes from `API_CORS_ORIGIN` — do not hardcode 3000.
 
 Secrets stay in environment variables. Never send provider keys to the client.
 
@@ -73,8 +75,10 @@ The API and ingest CLI use a server-side `DATABASE_URL`. Phase 0.1 currently run
 
 Default ports are web `3000` and API `3001`. This machine uses `3002` / `3010` when those defaults are taken — see `.env`.
 
-Row Level Security allows public `SELECT` on sports tables. Writes go through the Postgres/service role used by ingest.
+Row Level Security allows public `SELECT` on sports tables. Fantasy tables deny `anon`. Express uses the database owner (bypasses RLS); league rules are enforced in Express.
+
+Neon HTTP (`drizzle-orm/neon-http`) has no interactive transactions. League create is ordered inserts; a mid-flight failure returns 500 (or the API deletes the league row).
 
 ## Cost
 
-Phase 0.1 targets $0/month: local or free-tier Supabase, no Redis, no commercial sports API, no hosted worker. Ingest is a CLI, not a deployed service.
+Target $0/month: Neon/Supabase free tier, no Redis, no commercial sports API, no hosted worker. Ingest and DST seed are CLIs.

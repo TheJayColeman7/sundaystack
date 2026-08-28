@@ -3,19 +3,14 @@ import { fileURLToPath } from "node:url";
 import cors from "cors";
 import { config } from "dotenv";
 import express from "express";
-import { createDb, listPlayers, type Database } from "@sundaystack/database";
-import { z } from "zod";
+import { createDb, type Database } from "@sundaystack/database";
+import { sessionMiddleware } from "./middleware";
+import { authRouter } from "./routes/auth";
+import { leaguesRouter } from "./routes/leagues";
+import { playersRouter } from "./routes/players";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 config({ path: resolve(root, ".env") });
-
-const querySchema = z.object({
-  search: z.string().trim().max(100).optional(),
-  team: z.string().trim().max(10).optional(),
-  position: z.string().trim().max(10).optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(25),
-  offset: z.coerce.number().int().min(0).default(0),
-});
 
 let db: Database | undefined;
 
@@ -30,9 +25,11 @@ const origin = process.env.API_CORS_ORIGIN ?? "http://localhost:3000";
 app.use(
   cors({
     origin,
+    credentials: true,
   }),
 );
 app.use(express.json());
+app.use(sessionMiddleware);
 
 app.get("/", (_req, res) => {
   const webUrl = process.env.API_CORS_ORIGIN ?? "http://localhost:3000";
@@ -63,31 +60,9 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, service: "sundaystack-api" });
 });
 
-app.get("/api/players", async (req, res) => {
-  const parsed = querySchema.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({
-      error: "Invalid query",
-      details: parsed.error.flatten(),
-    });
-    return;
-  }
-
-  try {
-    const result = await listPlayers(getDb(), {
-      search: parsed.data.search || undefined,
-      team: parsed.data.team || undefined,
-      position: parsed.data.position || undefined,
-      limit: parsed.data.limit,
-      offset: parsed.data.offset,
-    });
-    res.json(result);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    const status = message.includes("DATABASE_URL") ? 503 : 500;
-    res.status(status).json({ error: message });
-  }
-});
+app.use(authRouter(getDb));
+app.use(playersRouter(getDb));
+app.use(leaguesRouter(getDb));
 
 const port = Number(process.env.API_PORT ?? 3001);
 

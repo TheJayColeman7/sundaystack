@@ -5,6 +5,7 @@ export const SPORTS_DATA_PROVIDERS = [
   "espn",
   "pfr",
   "sportsdataio",
+  "sundaystack",
 ] as const;
 
 export type SportsDataProviderName = (typeof SPORTS_DATA_PROVIDERS)[number];
