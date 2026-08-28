@@ -1,6 +1,6 @@
 # Architecture
 
-SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.4 weekly H2H matchups and fantasy **points** are in (`packages/fantasy-engine`, computed on read; never stored on `player_game_stats`). Playoffs and waivers are Phase 0.5.
+SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.4 weekly H2H matchups and fantasy **points** are in (`packages/fantasy-engine`, computed on read; never stored on `player_game_stats`). Phase 0.5a adds ESPN-style FA/waivers (lazy process, no worker). Trades and playoffs stay later in 0.5.
 
 ## Why this shape
 
@@ -36,10 +36,10 @@ Next.js web app
 
 ```text
 apps/web                 Next.js App Router + Tailwind (login, leagues, roster, draft, matchup, player)
-apps/api                 Express REST (dev session + leagues + drafts + matchups + public players)
-packages/shared          Domain types, scoring presets, lineup + snake-draft + schedule rules, API DTOs
+apps/api                 Express REST (dev session + leagues + drafts + matchups + waivers + public players)
+packages/shared          Domain types, scoring presets, lineup + snake-draft + schedule + waiver rules, API DTOs
 packages/fantasy-engine  Pure fantasy-point scoring (skill + K; DEF = 0)
-packages/database        Drizzle schema + queries (sports + fantasy + drafts + matchups)
+packages/database        Drizzle schema + queries (sports + fantasy + drafts + matchups + waivers)
 packages/sports-data     SportsDataProvider, NflverseProvider, MockProvider, ingest
 supabase/migrations      Canonical PostgreSQL
 docs/
@@ -70,7 +70,7 @@ Public (no session): `GET /api/players`, `GET /api/players/:id`.
 
 Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League, draft, and matchup routes require a session.
 
-The live draft board **polls** Express (about 1.5s). Scoreboard polls about 15s while a week is live. Draft clock expiry and week lineup lock are **lazy**: the next authenticated GET/POST that sees the condition performs the work. No worker, Redis, or Realtime.
+The live draft board **polls** Express (about 1.5s). Scoreboard and the waiver board poll about 15s while a week is live. Draft clock expiry, week lineup lock, and waiver processing are **lazy**: the next authenticated GET/POST that sees the condition performs the work. No worker, Redis, or Realtime.
 
 Secrets stay in environment variables. Never send provider keys to the client.
 
@@ -82,10 +82,10 @@ Default ports are web `3000` and API `3001`. This machine uses `3002` / `3010` w
 
 Row Level Security allows public `SELECT` on sports tables. Fantasy tables deny `anon`. Express uses the database owner (bypasses RLS); league rules are enforced in Express.
 
-Neon HTTP (`drizzle-orm/neon-http`) has no interactive transactions. League create, draft picks, matchup inserts, and week snapshots are ordered inserts; unique constraints serialize races. A mid-flight failure returns 409/500.
+Neon HTTP (`drizzle-orm/neon-http`) has no interactive transactions. League create, draft picks, matchup inserts, week snapshots, and waiver awards are ordered inserts; unique constraints serialize races. A mid-flight failure returns 409/500.
 
 Fantasy points are not columns. Changing `league_scoring_rules` changes standings on the next read.
 
 ## Cost
 
-Target $0/month: Neon/Supabase free tier, no Redis, no commercial sports API, no hosted worker. Ingest and DST seed are CLIs. Draft clock and week lock have no background job.
+Target $0/month: Neon/Supabase free tier, no Redis, no commercial sports API, no hosted worker. Ingest and DST seed are CLIs. Draft clock, week lock, and waiver process have no background job.

@@ -3,17 +3,20 @@ import { z } from "zod";
 import {
   LeagueError,
   addRosterPlayer,
+  assertInstantAddAllowed,
   createLeague,
   dropRosterPlayer,
   getFantasyTeam,
   getLeagueDetail,
   getLeagueSettings,
+  getLeagueSettingsDto,
   getLeagueStatus,
   getRoster,
   isCurrentWeekLineupLocked,
   joinLeague,
   listLeaguesForUser,
   listRosterPlayersForLeague,
+  processWaiversIfDue,
   replaceLeagueScoring,
   requireLeagueMember,
   setLineup,
@@ -65,6 +68,10 @@ const settingsSchema = z.object({
   def: z.number().int().min(0).max(2).optional(),
   bench: z.number().int().min(0).max(12).optional(),
   ir: z.number().int().min(0).max(4).optional(),
+  waiverType: z.enum(["priority", "faab"]).optional(),
+  faabBudget: z.number().int().min(0).max(10000).optional(),
+  waiverProcessWeekday: z.number().int().min(0).max(6).optional(),
+  waiverProcessHourUtc: z.number().int().min(0).max(23).optional(),
 });
 
 const scoringSchema = z
@@ -229,13 +236,24 @@ export function leaguesRouter(getDb: () => Database): Router {
         return;
       }
 
-      const current = await getLeagueSettings(getDb(), id.data);
+      const current = await getLeagueSettingsDto(getDb(), id.data);
       if (!current) {
         res.status(404).json({ error: "Settings not found" });
         return;
       }
 
-      const next: RosterConfig = { ...current, ...parsed.data };
+      const next: RosterConfig = {
+        qb: parsed.data.qb ?? current.qb,
+        rb: parsed.data.rb ?? current.rb,
+        wr: parsed.data.wr ?? current.wr,
+        te: parsed.data.te ?? current.te,
+        flex: parsed.data.flex ?? current.flex,
+        superflex: parsed.data.superflex ?? current.superflex,
+        k: parsed.data.k ?? current.k,
+        def: parsed.data.def ?? current.def,
+        bench: parsed.data.bench ?? current.bench,
+        ir: parsed.data.ir ?? current.ir,
+      };
       const rostered = await listRosterPlayersForLeague(getDb(), id.data);
       const byTeam = new Map<string, typeof rostered>();
       for (const row of rostered) {
@@ -261,7 +279,13 @@ export function leaguesRouter(getDb: () => Database): Router {
         }
       }
 
-      const settings = await updateLeagueSettings(getDb(), id.data, next);
+      const settings = await updateLeagueSettings(getDb(), id.data, {
+        ...next,
+        waiverType: parsed.data.waiverType ?? current.waiverType,
+        faabBudget: parsed.data.faabBudget ?? current.faabBudget,
+        waiverProcessWeekday: parsed.data.waiverProcessWeekday ?? current.waiverProcessWeekday,
+        waiverProcessHourUtc: parsed.data.waiverProcessHourUtc ?? current.waiverProcessHourUtc,
+      });
       res.json(settings);
     } catch (error) {
       sendError(res, error);
@@ -305,6 +329,10 @@ export function leaguesRouter(getDb: () => Database): Router {
 
     try {
       await requireLeagueMember(getDb(), leagueId.data, user.id);
+      const leagueStatus = await getLeagueStatus(getDb(), leagueId.data);
+      if (leagueStatus === "active") {
+        await processWaiversIfDue(getDb(), leagueId.data);
+      }
       const roster = await getRoster(getDb(), teamId.data);
       if (!roster || roster.team.leagueId !== leagueId.data) {
         res.status(404).json({ error: "Roster not found" });
@@ -333,6 +361,7 @@ export function leaguesRouter(getDb: () => Database): Router {
         res.status(409).json({ error: "Add/drop is locked during the draft", code: "DRAFTING" });
         return;
       }
+      await assertInstantAddAllowed(getDb(), leagueId.data);
       const settings = await getLeagueSettings(getDb(), leagueId.data);
       if (!settings) {
         res.status(404).json({ error: "Settings not found" });

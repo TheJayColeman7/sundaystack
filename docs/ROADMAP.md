@@ -24,7 +24,9 @@ Matchups, weekly lineups, fantasy scoring engine (skill + K; DEF = 0), totals, r
 
 ## Current: Phase 0.5 — League Management
 
-Free agents, waivers (priority and FAAB), trades, commissioner tools, playoffs.
+**In progress (0.5a):** free agents and waivers (rolling priority and FAAB). ESPN weekly window; lazy process; no worker.
+
+**Later in 0.5:** trades, extra commissioner tools, playoffs.
 
 ## Explicitly later
 

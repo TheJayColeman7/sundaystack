@@ -68,6 +68,10 @@ export interface LeagueSettingsDto {
   bench: number;
   ir: number;
   regularSeasonWeeks: number;
+  waiverType: "priority" | "faab";
+  faabBudget: number;
+  waiverProcessWeekday: number;
+  waiverProcessHourUtc: number;
 }
 
 export interface ScoringRuleDto {
@@ -227,4 +231,39 @@ export interface StandingsRowDto {
   ties: number;
   pointsFor: number;
   pointsAgainst: number;
+}
+
+export type WaiverTypeDto = "priority" | "faab";
+export type WaiverWindowDto = "fa" | "waiver";
+export type WaiverClaimStatusDto = "pending" | "won" | "lost" | "cancelled";
+
+export interface WaiverClaimDto {
+  id: string;
+  playerId: string;
+  playerDisplayName: string;
+  playerPosition: string;
+  dropPlayerId: string | null;
+  dropDisplayName: string | null;
+  bid: number;
+  rank: number;
+  status: WaiverClaimStatusDto;
+}
+
+export interface WaiverPriorityDto {
+  teamId: string;
+  teamName: string;
+  rank: number;
+  faabRemaining: number;
+}
+
+export interface WaiverBoardDto {
+  window: WaiverWindowDto;
+  waiverType: WaiverTypeDto;
+  processAt: string | null;
+  processedAt: string | null;
+  secondsToProcess: number | null;
+  faabRemaining: number | null;
+  myTeamId: string | null;
+  claims: WaiverClaimDto[];
+  priority: WaiverPriorityDto[];
 }

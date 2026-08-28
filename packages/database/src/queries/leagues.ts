@@ -7,7 +7,19 @@ import type {
   LeagueSummaryDto,
   ScoringRuleDto,
 } from "@sundaystack/shared";
-import { DEFAULT_REGULAR_SEASON_WEEKS, DEFAULT_ROSTER_CONFIG, rosterCapacity, totalPicks, type RosterConfig } from "@sundaystack/shared";
+import {
+  DEFAULT_FAAB_BUDGET,
+  DEFAULT_REGULAR_SEASON_WEEKS,
+  DEFAULT_ROSTER_CONFIG,
+  DEFAULT_WAIVER_PROCESS_HOUR_UTC,
+  DEFAULT_WAIVER_PROCESS_WEEKDAY,
+  DEFAULT_WAIVER_TYPE,
+  isWaiverType,
+  rosterCapacity,
+  totalPicks,
+  type RosterConfig,
+  type WaiverType,
+} from "@sundaystack/shared";
 import type { Database } from "../client";
 import {
   draftOrder,
@@ -78,6 +90,17 @@ function slotConfig(row: {
   };
 }
 
+function defaultSettingsDto(): LeagueSettingsDto {
+  return {
+    ...DEFAULT_ROSTER_CONFIG,
+    regularSeasonWeeks: DEFAULT_REGULAR_SEASON_WEEKS,
+    waiverType: DEFAULT_WAIVER_TYPE,
+    faabBudget: DEFAULT_FAAB_BUDGET,
+    waiverProcessWeekday: DEFAULT_WAIVER_PROCESS_WEEKDAY,
+    waiverProcessHourUtc: DEFAULT_WAIVER_PROCESS_HOUR_UTC,
+  };
+}
+
 function settingsToDto(row: {
   qb: number;
   rb: number;
@@ -90,10 +113,19 @@ function settingsToDto(row: {
   bench: number;
   ir: number;
   regularSeasonWeeks?: number;
+  waiverType?: string;
+  faabBudget?: number;
+  waiverProcessWeekday?: number;
+  waiverProcessHourUtc?: number;
 }): LeagueSettingsDto {
+  const waiverType = row.waiverType && isWaiverType(row.waiverType) ? row.waiverType : DEFAULT_WAIVER_TYPE;
   return {
     ...slotConfig(row),
     regularSeasonWeeks: row.regularSeasonWeeks ?? DEFAULT_REGULAR_SEASON_WEEKS,
+    waiverType,
+    faabBudget: row.faabBudget ?? DEFAULT_FAAB_BUDGET,
+    waiverProcessWeekday: row.waiverProcessWeekday ?? DEFAULT_WAIVER_PROCESS_WEEKDAY,
+    waiverProcessHourUtc: row.waiverProcessHourUtc ?? DEFAULT_WAIVER_PROCESS_HOUR_UTC,
   };
 }
 
@@ -247,9 +279,7 @@ export async function getLeagueDetail(db: Database, leagueId: string): Promise<L
       ownerUserId: row.ownerUserId,
       ownerDisplayName: row.ownerDisplayName,
     })),
-    settings: settingsRow
-      ? settingsToDto(settingsRow)
-      : { ...DEFAULT_ROSTER_CONFIG, regularSeasonWeeks: DEFAULT_REGULAR_SEASON_WEEKS },
+    settings: settingsRow ? settingsToDto(settingsRow) : defaultSettingsDto(),
     scoring,
   };
 }
@@ -453,7 +483,12 @@ export async function joinLeague(
 export async function updateLeagueSettings(
   db: Database,
   leagueId: string,
-  settings: RosterConfig,
+  settings: RosterConfig & {
+    waiverType: WaiverType;
+    faabBudget: number;
+    waiverProcessWeekday: number;
+    waiverProcessHourUtc: number;
+  },
 ): Promise<LeagueSettingsDto> {
   const existing = await db
     .select({ id: leagueSettings.id })
@@ -478,11 +513,19 @@ export async function updateLeagueSettings(
       def: settings.def,
       bench: settings.bench,
       ir: settings.ir,
+      waiverType: settings.waiverType,
+      faabBudget: settings.faabBudget,
+      waiverProcessWeekday: settings.waiverProcessWeekday,
+      waiverProcessHourUtc: settings.waiverProcessHourUtc,
       updatedAt: new Date(),
     })
     .where(eq(leagueSettings.leagueId, leagueId));
 
-  return settingsToDto(settings);
+  const dto = await getLeagueSettingsDto(db, leagueId);
+  if (!dto) {
+    throw new LeagueError("League settings not found", 404);
+  }
+  return dto;
 }
 
 export async function replaceLeagueScoring(
@@ -542,6 +585,18 @@ export async function getLeagueSettings(
     .where(eq(leagueSettings.leagueId, leagueId))
     .limit(1);
   return row ? slotConfig(row) : null;
+}
+
+export async function getLeagueSettingsDto(
+  db: Database,
+  leagueId: string,
+): Promise<LeagueSettingsDto | null> {
+  const [row] = await db
+    .select()
+    .from(leagueSettings)
+    .where(eq(leagueSettings.leagueId, leagueId))
+    .limit(1);
+  return row ? settingsToDto(row) : null;
 }
 
 export async function getLeagueStatus(

@@ -39,6 +39,10 @@ players 1──* roster_players
 leagues 1──* matchups
 leagues 1──* weekly_lineups
 leagues 1──* week_locks
+leagues 1──* waiver_priorities
+leagues 1──* faab_balances
+leagues 1──* waiver_periods
+waiver_periods 1──* waiver_claims
 ```
 
 ## Sports tables (0.1)
@@ -67,7 +71,7 @@ One team per member. Unique `(league_id, owner_user_id)`.
 
 ### league_settings
 
-1:1 with league. Slot counts: `qb`, `rb`, `wr`, `te`, `flex`, `superflex` (default 0), `k`, `def`, `bench`, `ir` (default 0). `regular_season_weeks` (default 14, 1–17). Frozen after the draft goes live. Draft rounds = roster capacity (IR excluded).
+1:1 with league. Slot counts: `qb`, `rb`, `wr`, `te`, `flex`, `superflex` (default 0), `k`, `def`, `bench`, `ir` (default 0). `regular_season_weeks` (default 14, 1–17). Waiver: `waiver_type` (`priority` | `faab`, default `faab`), `faab_budget` (default 100), `waiver_process_weekday` (0–6, default 2 = Tuesday), `waiver_process_hour_utc` (0–23, default 7). Frozen after the draft goes live. Draft rounds = roster capacity (IR excluded).
 
 ### league_scoring_rules
 
@@ -107,7 +111,7 @@ H2H only. Regular season is NFL `REG` weeks 1–14. No playoffs. Fantasy points 
 
 Schedule is generated lazily on first scoreboard fetch for an `active` league (circle round-robin, repeated to 14 weeks).
 
-Lineup **lock is lazy**: first authenticated scoreboard/matchup GET after the week’s earliest REG `kickoff_at` snapshots `roster_players` into `weekly_lineups`. `week_locks` marks the snapshot done. Before lock, scores use the live roster. After lock, add/drop can change the live roster but not that week’s snapshot.
+Lineup **lock is lazy**: first authenticated scoreboard/matchup GET after the week’s earliest REG `kickoff_at` snapshots `roster_players` into `weekly_lineups`. `week_locks` marks the snapshot done. Before lock, scores use the live roster. After lock, the live roster can still change (drops and waiver awards) but **not** that week’s snapshot.
 
 Starters score; bench is 0. DEF is 0 until DST ingest.
 
@@ -122,6 +126,34 @@ Starters score; bench is 0. DEF is 0 until DST ingest.
 ### week_locks
 
 `league_id`, `week`, `locked_at`. Unique `(league_id, week)`. Presence means the snapshot finished.
+
+## Waivers (0.5a)
+
+ESPN-style week: after process, **free agency until that week’s lineup lock**; after lock, **claims only** until the next process. Process is **lazy** (no worker): the next authenticated waivers/scoreboard/roster GET after `process_at` runs awards. Instant add is blocked during the claim window (`WAIVER_PERIOD`). Drop stays allowed; the player goes on the next wire, not to FA.
+
+After draft completes: FA until week 1 lock, then the lock → claims → process → FA cycle.
+
+Priority is **rolling**, not reverse standings (standings are compute-on-read and move if scoring is PATCHed). Init from reverse draft order (`draft_order.slot` descending = rank 1), lazily on first waivers fetch — not inside draft `completeOrAdvance`. A successful claim moves that team to last. FAAB uses the list only for bid ties.
+
+Awards mutate live `roster_players` only. Never rewrite `weekly_lineups` for a locked week. Claim add+drop is delete-then-insert; unique `(league_id, player_id)` serializes races (Neon HTTP has no transactions).
+
+Public `GET /api/players` stays unfiltered. The FA/waiver pool is a member-only league route.
+
+### waiver_priorities
+
+`league_id`, `fantasy_team_id`, `rank` (1 = first). Unique team, unique `(league_id, rank)`.
+
+### faab_balances
+
+`league_id`, `fantasy_team_id`, `remaining`. Unique team. Initialized for every team; ignored when `waiver_type = priority`.
+
+### waiver_periods
+
+`league_id`, `process_at`, `processed_at` (null until the run finishes). Unique `(league_id, process_at)`.
+
+### waiver_claims
+
+`league_id`, `period_id`, `fantasy_team_id`, `player_id`, `drop_player_id` (nullable), `bid`, `rank`, `status` (`pending` | `won` | `lost` | `cancelled`). Unique `(period_id, fantasy_team_id, player_id)`. Full roster requires `drop_player_id`.
 
 ## Identity
 
@@ -142,4 +174,4 @@ Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match fu
 - Sports tables: `SELECT` for `anon` and `authenticated`.
 - `users`: read/update own row only.
 - Fantasy tables: not readable by `anon`. `authenticated` may select leagues they belong to.
-- Express uses the database owner (bypasses RLS). League, draft, and matchup rules are enforced in the API.
+- Express uses the database owner (bypasses RLS). League, draft, matchup, and waiver rules are enforced in the API.

@@ -278,6 +278,10 @@ export const leagueSettings = pgTable("league_settings", {
   bench: integer("bench").notNull().default(6),
   ir: integer("ir").notNull().default(0),
   regularSeasonWeeks: integer("regular_season_weeks").notNull().default(14),
+  waiverType: text("waiver_type").notNull().default("faab"),
+  faabBudget: integer("faab_budget").notNull().default(100),
+  waiverProcessWeekday: integer("waiver_process_weekday").notNull().default(2),
+  waiverProcessHourUtc: integer("waiver_process_hour_utc").notNull().default(7),
   ...timestamps,
 });
 
@@ -454,4 +458,78 @@ export const weekLocks = pgTable(
     ...timestamps,
   },
   (table) => [unique("week_locks_league_id_week_unique").on(table.leagueId, table.week)],
+);
+
+export const waiverPriorities = pgTable(
+  "waiver_priorities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    rank: integer("rank").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique("waiver_priorities_league_id_team_unique").on(table.leagueId, table.fantasyTeamId),
+    unique("waiver_priorities_league_id_rank_unique").on(table.leagueId, table.rank),
+  ],
+);
+
+export const faabBalances = pgTable(
+  "faab_balances",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    remaining: integer("remaining").notNull(),
+    ...timestamps,
+  },
+  (table) => [unique("faab_balances_league_id_team_unique").on(table.leagueId, table.fantasyTeamId)],
+);
+
+export const waiverPeriods = pgTable(
+  "waiver_periods",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    processAt: timestamp("process_at", { withTimezone: true }).notNull(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [unique("waiver_periods_league_id_process_at_unique").on(table.leagueId, table.processAt)],
+);
+
+export const waiverClaims = pgTable(
+  "waiver_claims",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    periodId: uuid("period_id")
+      .notNull()
+      .references(() => waiverPeriods.id, { onDelete: "cascade" }),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    dropPlayerId: uuid("drop_player_id").references(() => players.id),
+    bid: integer("bid").notNull().default(0),
+    rank: integer("rank").notNull(),
+    status: text("status").notNull().default("pending"),
+    ...timestamps,
+  },
+  (table) => [unique("waiver_claims_period_team_player_unique").on(table.periodId, table.fantasyTeamId, table.playerId)],
 );

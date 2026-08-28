@@ -10,6 +10,7 @@ import type {
   PlayerListResponse,
   RosterDto,
   RosterSlot,
+  WaiverBoardDto,
   WeekScoreboardDto,
 } from "@sundaystack/shared";
 import { ROSTER_SLOTS } from "@sundaystack/shared";
@@ -47,6 +48,7 @@ export default function RosterPage() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [scoreboard, setScoreboard] = useState<WeekScoreboardDto | null>(null);
+  const [waivers, setWaivers] = useState<WaiverBoardDto | null>(null);
   const [localSeconds, setLocalSeconds] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -81,11 +83,15 @@ export default function RosterPage() {
 
     async function loadBoard() {
       try {
-        const board = await api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, {
-          timeoutMs: 30000,
-        });
+        const [board, wire] = await Promise.all([
+          api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, {
+            timeoutMs: 30000,
+          }),
+          api<WaiverBoardDto>(`/api/leagues/${params.id}/waivers`, { timeoutMs: 30000 }),
+        ]);
         if (!cancelled) {
           setScoreboard(board);
+          setWaivers(wire);
           setLocalSeconds(board.secondsToLock);
         }
       } catch {
@@ -122,12 +128,16 @@ export default function RosterPage() {
       return;
     }
     const handle = window.setTimeout(() => {
-      void api<PlayerListResponse>(`/api/players?search=${encodeURIComponent(q)}&limit=12`)
+      const path =
+        league?.status === "active"
+          ? `/api/leagues/${params.id}/waivers/available?search=${encodeURIComponent(q)}&limit=12`
+          : `/api/players?search=${encodeURIComponent(q)}&limit=12`;
+      void api<PlayerListResponse>(path)
         .then((res) => setResults(res.data))
         .catch(() => setResults([]));
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [search]);
+  }, [league?.status, params.id, search]);
 
   const canEditRoster = Boolean(
     me && roster && (me.id === roster.team.ownerUserId || me.id === league?.commissionerUserId),
@@ -135,6 +145,8 @@ export default function RosterPage() {
   const drafting = league?.status === "drafting";
   const lineupLocked = Boolean(league?.status === "active" && scoreboard?.locked);
   const canAddDrop = canEditRoster && !drafting;
+  const canInstantAdd = canAddDrop && waivers?.window !== "waiver";
+  const canClaim = canAddDrop && waivers?.window === "waiver";
   const canEditSlots = canEditRoster && !lineupLocked;
 
   const grouped = useMemo(() => {
@@ -226,6 +238,11 @@ export default function RosterPage() {
         </Link>
         <h1 className="text-xl font-semibold">{roster.team.name}</h1>
         <p className="text-xs text-zinc-500">{roster.team.ownerDisplayName}</p>
+        {league?.status === "active" ? (
+          <Link href={`/leagues/${params.id}/waivers`} className="text-[11px] text-turf hover:underline">
+            {waivers?.window === "waiver" ? "Waiver claims" : "Free agents / waivers"}
+          </Link>
+        ) : null}
       </div>
       {drafting ? (
         <p className="text-xs text-amber-400">
@@ -249,7 +266,14 @@ export default function RosterPage() {
 
       {canAddDrop ? (
         <div className="rounded border border-line bg-panel p-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Add player</p>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+            {canClaim ? "Claim player" : "Add player"}
+          </p>
+          {canClaim ? (
+            <p className="mt-1 text-[11px] text-zinc-500">
+              Instant adds are closed. Submit a claim — dropped players go on the waiver wire.
+            </p>
+          ) : null}
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -266,14 +290,23 @@ export default function RosterPage() {
                       {player.position} {player.team?.abbreviation ?? ""}
                     </span>
                   </Link>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => void addPlayer(player.id)}
-                    className="text-xs text-turf disabled:opacity-50"
-                  >
-                    Add
-                  </button>
+                  {canClaim ? (
+                    <Link
+                      href={`/leagues/${params.id}/waivers?player=${player.id}`}
+                      className="text-xs text-turf"
+                    >
+                      Claim
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={pending || !canInstantAdd}
+                      onClick={() => void addPlayer(player.id)}
+                      className="text-xs text-turf disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

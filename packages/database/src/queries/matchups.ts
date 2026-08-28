@@ -196,6 +196,28 @@ export function deriveCurrentWeek(
   return Math.min(regularSeasonWeeks, weeks[weeks.length - 1] ?? 1);
 }
 
+export async function listWeekLockAts(db: Database, leagueId: string): Promise<Date[]> {
+  const [league] = await db
+    .select({ seasonId: leagues.seasonId })
+    .from(leagues)
+    .where(eq(leagues.id, leagueId))
+    .limit(1);
+  if (!league) {
+    throw new LeagueError("League not found", 404);
+  }
+
+  const weeks = await getRegularSeasonWeeks(db, leagueId);
+  const weekGames = await loadRegGames(db, league.seasonId);
+  const lockAts: Date[] = [];
+  for (let week = 1; week <= weeks; week += 1) {
+    const lockAt = weekLockAt(weekGames, week);
+    if (lockAt) {
+      lockAts.push(lockAt);
+    }
+  }
+  return lockAts;
+}
+
 export function weekLockAt(
   weekGames: Array<{ week: number; status: string; kickoffAt: Date | null }>,
   week: number,

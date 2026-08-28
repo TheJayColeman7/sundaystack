@@ -8,6 +8,7 @@ export {
   getFantasyTeam,
   getLeagueDetail,
   getLeagueSettings,
+  getLeagueSettingsDto,
   getLeagueStatus,
   joinLeague,
   listLeaguesForUser,
@@ -41,4 +42,13 @@ export {
   getScoreboard,
   getStandings,
   isCurrentWeekLineupLocked,
+  listWeekLockAts,
 } from "./queries/matchups";
+export {
+  assertInstantAddAllowed,
+  cancelWaiverClaim,
+  getWaiverBoard,
+  listWaiverAvailable,
+  processWaiversIfDue,
+  replaceWaiverClaims,
+} from "./queries/waivers";

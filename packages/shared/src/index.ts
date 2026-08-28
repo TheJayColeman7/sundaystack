@@ -40,6 +40,12 @@ export type {
   ScoreboardMatchupDto,
   WeekScoreboardDto,
   StandingsRowDto,
+  WaiverBoardDto,
+  WaiverClaimDto,
+  WaiverPriorityDto,
+  WaiverClaimStatusDto,
+  WaiverTypeDto,
+  WaiverWindowDto,
 } from "./api";
 export type { ScoringPreset, ScoringRule, StatKey } from "./scoring";
 export {
@@ -73,3 +79,23 @@ export {
   snakePickOwner,
   totalPicks,
 } from "./draft";
+export type {
+  WaiverAward,
+  WaiverClaimInput,
+  WaiverRunResult,
+  WaiverTeamState,
+  WaiverType,
+  WaiverWindow,
+} from "./waiver";
+export {
+  DEFAULT_FAAB_BUDGET,
+  DEFAULT_WAIVER_PROCESS_HOUR_UTC,
+  DEFAULT_WAIVER_PROCESS_WEEKDAY,
+  DEFAULT_WAIVER_TYPE,
+  MAX_WAIVER_CLAIMS,
+  WAIVER_TYPES,
+  deriveWaiverWindow,
+  isWaiverType,
+  nextWeeklyInstant,
+  resolveWaiverRun,
+} from "./waiver";

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import type { AuthUser, LeagueDetailDto, ScoringPreset, StandingsRowDto, WeekScoreboardDto } from "@sundaystack/shared";
+import type { AuthUser, LeagueDetailDto, ScoringPreset, StandingsRowDto, WaiverBoardDto, WeekScoreboardDto } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
 
 const SCOREBOARD_POLL_MS = 15_000;
@@ -25,6 +25,7 @@ export default function LeaguePage() {
   const [pending, setPending] = useState(false);
   const [standings, setStandings] = useState<StandingsRowDto[] | null>(null);
   const [scoreboard, setScoreboard] = useState<WeekScoreboardDto | null>(null);
+  const [waivers, setWaivers] = useState<WaiverBoardDto | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -53,13 +54,15 @@ export default function LeaguePage() {
 
     async function loadWeek() {
       try {
-        const [board, table] = await Promise.all([
+        const [board, table, wire] = await Promise.all([
           api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, { timeoutMs: 30000 }),
           api<{ data: StandingsRowDto[] }>(`/api/leagues/${params.id}/standings`, { timeoutMs: 30000 }),
+          api<WaiverBoardDto>(`/api/leagues/${params.id}/waivers`, { timeoutMs: 30000 }),
         ]);
         if (!cancelled) {
           setScoreboard(board);
           setStandings(table.data);
+          setWaivers(wire);
         }
       } catch (err) {
         if (!cancelled) {
@@ -125,6 +128,14 @@ export default function LeaguePage() {
           >
             Draft
           </Link>
+          {league.status === "active" ? (
+            <Link
+              href={`/leagues/${league.id}/waivers`}
+              className="rounded border border-line px-3 py-1.5 text-xs font-medium hover:border-turf"
+            >
+              Waivers
+            </Link>
+          ) : null}
           <div className="rounded border border-line bg-panel px-3 py-1.5 font-mono text-sm tracking-widest text-turf">
             {league.inviteCode}
           </div>
@@ -134,6 +145,18 @@ export default function LeaguePage() {
 
       {league.status === "active" ? (
         <>
+          {waivers ? (
+            <p className="text-xs text-zinc-400">
+              {waivers.window === "fa" ? "Free agency is open." : "Waiver claims are open."}{" "}
+              <Link href={`/leagues/${league.id}/waivers`} className="text-turf hover:underline">
+                {waivers.window === "fa" ? "View FA / waivers" : "Manage claims"}
+              </Link>
+              {waivers.waiverType === "faab" && waivers.faabRemaining != null
+                ? ` · FAAB ${waivers.faabRemaining}`
+                : ""}
+            </p>
+          ) : null}
+
           <section>
             <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
               Standings
