@@ -46,6 +46,10 @@ export type {
   WaiverClaimStatusDto,
   WaiverTypeDto,
   WaiverWindowDto,
+  TradeBoardDto,
+  TradeDto,
+  TradePlayerDto,
+  TradeStatusDto,
 } from "./api";
 export type { ScoringPreset, ScoringRule, StatKey } from "./scoring";
 export {
@@ -99,3 +103,21 @@ export {
   nextWeeklyInstant,
   resolveWaiverRun,
 } from "./waiver";
+export type {
+  TradeOfferInput,
+  TradePlayerRole,
+  TradeSideInput,
+  TradeStatus,
+  TradeValidationResult,
+} from "./trade";
+export {
+  DEFAULT_TRADE_EXPIRY_DAYS,
+  MAX_TRADE_PLAYERS,
+  TRADE_PLAYER_ROLES,
+  TRADE_STATUSES,
+  findPendingPlayerConflict,
+  isTradeExpired,
+  isTradeStatus,
+  previewTradeRosters,
+  validateTradeOffer,
+} from "./trade";

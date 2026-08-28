@@ -239,9 +239,19 @@ export default function RosterPage() {
         <h1 className="text-xl font-semibold">{roster.team.name}</h1>
         <p className="text-xs text-zinc-500">{roster.team.ownerDisplayName}</p>
         {league?.status === "active" ? (
-          <Link href={`/leagues/${params.id}/waivers`} className="text-[11px] text-turf hover:underline">
-            {waivers?.window === "waiver" ? "Waiver claims" : "Free agents / waivers"}
-          </Link>
+          <div className="flex gap-3">
+            <Link href={`/leagues/${params.id}/waivers`} className="text-[11px] text-turf hover:underline">
+              {waivers?.window === "waiver" ? "Waiver claims" : "Free agents / waivers"}
+            </Link>
+            {me && me.id !== roster.team.ownerUserId ? (
+              <Link
+                href={`/leagues/${params.id}/trades?with=${params.teamId}`}
+                className="text-[11px] text-turf hover:underline"
+              >
+                Propose trade
+              </Link>
+            ) : null}
+          </div>
         ) : null}
       </div>
       {drafting ? (

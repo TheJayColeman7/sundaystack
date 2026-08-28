@@ -267,3 +267,33 @@ export interface WaiverBoardDto {
   claims: WaiverClaimDto[];
   priority: WaiverPriorityDto[];
 }
+
+export type TradeStatusDto = "pending" | "completed" | "rejected" | "cancelled" | "expired";
+
+export interface TradePlayerDto {
+  playerId: string;
+  displayName: string;
+  position: string;
+  fromTeamId: string;
+  role: "send" | "drop";
+}
+
+export interface TradeDto {
+  id: string;
+  proposerTeamId: string;
+  proposerTeamName: string;
+  counterpartyTeamId: string;
+  counterpartyTeamName: string;
+  status: TradeStatusDto;
+  expiresAt: string;
+  acceptedAt: string | null;
+  players: TradePlayerDto[];
+}
+
+export interface TradeBoardDto {
+  myTeamId: string | null;
+  incoming: TradeDto[];
+  outgoing: TradeDto[];
+  leaguePending: TradeDto[];
+  recent: TradeDto[];
+}

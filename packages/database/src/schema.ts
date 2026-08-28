@@ -533,3 +533,42 @@ export const waiverClaims = pgTable(
   },
   (table) => [unique("waiver_claims_period_team_player_unique").on(table.periodId, table.fantasyTeamId, table.playerId)],
 );
+
+export const trades = pgTable(
+  "trades",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    proposerFantasyTeamId: uuid("proposer_fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    counterpartyFantasyTeamId: uuid("counterparty_fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    ...timestamps,
+  },
+);
+
+export const tradePlayers = pgTable(
+  "trade_players",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tradeId: uuid("trade_id")
+      .notNull()
+      .references(() => trades.id, { onDelete: "cascade" }),
+    fromFantasyTeamId: uuid("from_fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    role: text("role").notNull(),
+    ...timestamps,
+  },
+  (table) => [unique("trade_players_trade_id_player_unique").on(table.tradeId, table.playerId)],
+);

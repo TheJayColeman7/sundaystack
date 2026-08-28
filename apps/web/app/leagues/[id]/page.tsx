@@ -129,12 +129,20 @@ export default function LeaguePage() {
             Draft
           </Link>
           {league.status === "active" ? (
-            <Link
-              href={`/leagues/${league.id}/waivers`}
-              className="rounded border border-line px-3 py-1.5 text-xs font-medium hover:border-turf"
-            >
-              Waivers
-            </Link>
+            <>
+              <Link
+                href={`/leagues/${league.id}/waivers`}
+                className="rounded border border-line px-3 py-1.5 text-xs font-medium hover:border-turf"
+              >
+                Waivers
+              </Link>
+              <Link
+                href={`/leagues/${league.id}/trades`}
+                className="rounded border border-line px-3 py-1.5 text-xs font-medium hover:border-turf"
+              >
+                Trades
+              </Link>
+            </>
           ) : null}
           <div className="rounded border border-line bg-panel px-3 py-1.5 font-mono text-sm tracking-widest text-turf">
             {league.inviteCode}

@@ -11,6 +11,7 @@ import { leaguesRouter } from "./routes/leagues";
 import { matchupsRouter } from "./routes/matchups";
 import { playersRouter } from "./routes/players";
 import { waiversRouter } from "./routes/waivers";
+import { tradesRouter } from "./routes/trades";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 config({ path: resolve(root, ".env") });
@@ -69,6 +70,7 @@ app.use(leaguesRouter(getDb));
 app.use(draftsRouter(getDb));
 app.use(matchupsRouter(getDb));
 app.use(waiversRouter(getDb));
+app.use(tradesRouter(getDb));
 
 const port = Number(process.env.API_PORT ?? 3001);
 

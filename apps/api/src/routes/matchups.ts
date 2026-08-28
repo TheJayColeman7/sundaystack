@@ -6,6 +6,7 @@ import {
   getScoreboard,
   getStandings,
   processWaiversIfDue,
+  expireTradesIfDue,
   requireLeagueMember,
   type Database,
 } from "@sundaystack/database";
@@ -39,6 +40,7 @@ export function matchupsRouter(getDb: () => Database): Router {
     try {
       await requireLeagueMember(getDb(), id.data, user.id);
       await processWaiversIfDue(getDb(), id.data);
+      await expireTradesIfDue(getDb(), id.data);
       const board = await getScoreboard(getDb(), id.data, week.data);
       res.json(board);
     } catch (error) {

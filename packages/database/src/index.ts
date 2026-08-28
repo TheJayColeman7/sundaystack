@@ -52,3 +52,11 @@ export {
   processWaiversIfDue,
   replaceWaiverClaims,
 } from "./queries/waivers";
+export {
+  acceptTrade,
+  cancelTrade,
+  expireTradesIfDue,
+  getTradeBoard,
+  proposeTrade,
+  rejectTrade,
+} from "./queries/trades";

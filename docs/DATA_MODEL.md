@@ -43,6 +43,8 @@ leagues 1──* waiver_priorities
 leagues 1──* faab_balances
 leagues 1──* waiver_periods
 waiver_periods 1──* waiver_claims
+leagues 1──* trades
+trades 1──* trade_players
 ```
 
 ## Sports tables (0.1)
@@ -155,6 +157,24 @@ Public `GET /api/players` stays unfiltered. The FA/waiver pool is a member-only 
 
 `league_id`, `period_id`, `fantasy_team_id`, `player_id`, `drop_player_id` (nullable), `bid`, `rank`, `status` (`pending` | `won` | `lost` | `cancelled`). Unique `(period_id, fantasy_team_id, player_id)`. Full roster requires `drop_player_id`.
 
+## Trades (0.5b)
+
+Sleeper-style: **propose → counterparty accepts → live roster swap in that request**. No veto window, no worker. Commissioner may cancel a **pending** offer only (not unwind a completed trade). Pending offers expire after 7 days, lazily on the next authenticated trades/scoreboard GET.
+
+Trades require `leagues.status = active`. They are allowed during FA and the waiver claim window (they are not instant FA adds). Execute mutates live `roster_players` only — never rewrite `weekly_lineups` for a locked week.
+
+Swap order: delete all `send` + `drop` rows on both sides, then insert incoming via `defaultAddSlot`. Unique `(league_id, player_id)` serializes races (Neon HTTP has no transactions); on failure, restore deleted rows.
+
+A player may appear in only one `pending` trade (409 `PLAYER_IN_TRADE`). Drops are unrostered (FA or next wire, same as a manual drop). FAAB and future picks are not tradeable.
+
+### trades
+
+`league_id`, `proposer_fantasy_team_id`, `counterparty_fantasy_team_id` (must differ), `status` (`pending` | `completed` | `rejected` | `cancelled` | `expired`), `expires_at`, `accepted_at` (null until completed).
+
+### trade_players
+
+`trade_id`, `from_fantasy_team_id`, `player_id`, `role` (`send` | `drop`). Unique `(trade_id, player_id)`. `send` moves to the other team; `drop` is released on execute so that side stays at/under roster cap.
+
 ## Identity
 
 Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match future Supabase Auth (`public.users.id` = `auth.users.id`). No passwords.
@@ -174,4 +194,4 @@ Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match fu
 - Sports tables: `SELECT` for `anon` and `authenticated`.
 - `users`: read/update own row only.
 - Fantasy tables: not readable by `anon`. `authenticated` may select leagues they belong to.
-- Express uses the database owner (bypasses RLS). League, draft, matchup, and waiver rules are enforced in the API.
+- Express uses the database owner (bypasses RLS). League, draft, matchup, waiver, and trade rules are enforced in the API.
