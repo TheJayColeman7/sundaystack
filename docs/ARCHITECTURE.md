@@ -35,9 +35,9 @@ Next.js web app
 ## Workspace
 
 ```text
-apps/web                 Next.js App Router + Tailwind (login, leagues, roster, draft, matchup, waivers, trades, player)
-apps/api                 Express REST (dev session + leagues + drafts + matchups + waivers + trades + public players)
-packages/shared          Domain types, scoring presets, lineup + snake-draft + schedule + waiver + trade + playoff rules, API DTOs
+apps/web                 Next.js App Router + Tailwind (login, leagues, roster, draft, matchup, waivers, trades, player, account)
+apps/api                 Express REST (dev session + leagues + drafts + matchups + waivers + trades + public players/teams)
+packages/shared          Domain types, scoring presets, lineup + snake-draft + schedule + waiver + trade + playoff + jersey kit rules, API DTOs
 packages/fantasy-engine  Pure fantasy-point scoring (skill + K; DEF = 0)
 packages/database        Drizzle schema + queries (sports + fantasy + drafts + matchups + waivers + trades + playoffs)
 packages/sports-data     SportsDataProvider, NflverseProvider, MockProvider, ingest
@@ -66,9 +66,9 @@ CSV column names and nflverse field types stay inside `packages/sports-data/src/
 | `apps/web` | 3000 (or `3002` if taken) | UI |
 | `apps/api` | 3001 (or `3010` if taken) | REST |
 
-Public (no session): `GET /api/players`, `GET /api/players/:id`.
+Public (no session): `GET /api/players`, `GET /api/players/:id`, `GET /api/teams` (current 32 NFL franchises + colors).
 
-Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League, draft, matchup, waiver, and trade routes require a session.
+Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League, draft, matchup, waiver, and trade routes require a session. `GET /api/me` returns profile + jersey prefs; `PATCH /api/me` updates first/last name, avatar, favorite team, and Home/Away. Email is identity (read-only on Account). The JWT does not embed those fields (they go stale). The Account nav item is session-only.
 
 The live draft board **polls** Express (about 1.5s). Scoreboard, waivers, and trades poll about 15s while a week is live. Draft clock expiry, week lineup lock, waiver processing, trade offer expiry, and playoff bracket/championship generation are **lazy**: the next authenticated GET/POST that sees the condition performs the work. No worker, Redis, or Realtime.
 

@@ -10,6 +10,7 @@ import { draftsRouter } from "./routes/drafts";
 import { leaguesRouter } from "./routes/leagues";
 import { matchupsRouter } from "./routes/matchups";
 import { playersRouter } from "./routes/players";
+import { teamsRouter } from "./routes/teams";
 import { waiversRouter } from "./routes/waivers";
 import { tradesRouter } from "./routes/trades";
 
@@ -32,7 +33,7 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
+app.use(express.json({ limit: "400kb" }));
 app.use(sessionMiddleware);
 
 app.get("/", (_req, res) => {
@@ -55,6 +56,7 @@ app.get("/", (_req, res) => {
     <ul>
       <li><a href="/health">/health</a></li>
       <li><a href="/api/players?search=mahomes&amp;position=QB">/api/players?search=mahomes&amp;position=QB</a></li>
+      <li><a href="/api/teams">/api/teams</a></li>
     </ul>
   </body>
 </html>`);
@@ -66,6 +68,7 @@ app.get("/health", (_req, res) => {
 
 app.use(authRouter(getDb));
 app.use(playersRouter(getDb));
+app.use(teamsRouter(getDb));
 app.use(leaguesRouter(getDb));
 app.use(draftsRouter(getDb));
 app.use(matchupsRouter(getDb));

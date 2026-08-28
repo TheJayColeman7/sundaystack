@@ -26,6 +26,7 @@ players 1──* player_game_stats
 games   1──* player_game_stats
 
 users 1──* leagues (commissioner)
+users N──1 teams (favorite NFL franchise, nullable)
 leagues 1──* league_members
 leagues 1──* fantasy_teams
 leagues 1──1 league_settings
@@ -50,7 +51,15 @@ leagues 1──* playoff_seeds
 
 ## Sports tables (0.1)
 
-Unchanged: `users`, `sports`, `teams`, `team_external_ids`, `players`, `player_external_ids`, `seasons`, `games`, `game_external_ids`, `player_game_stats`.
+### teams
+
+NFL franchises. `primary_color` / `secondary_color` / `tertiary_color` are `#RRGGBB` or null (filled by ingest from the sports-data layer; not used as provider objects). Historical abbreviations may exist; the favorite-team picker is the current 32 only.
+
+### users
+
+Profile (`id` = `auth.users.id`). `display_name` (derived from first + last when those are saved). `first_name`, `last_name`, `avatar_url` (https or a small image data URL). `favorite_team_id` (nullable FK to `teams`, `ON DELETE SET NULL`). `jersey_side` (`home` | `away`, default `home`). Home/Away is jersey appearance, not a Light/Dark axis. No favorite team → UI stays the SundayStack dark kit regardless of `jersey_side`. Email lives on `auth.users` and is shown read-only on Account.
+
+Unchanged otherwise: `sports`, `team_external_ids`, `players`, `player_external_ids`, `seasons`, `games`, `game_external_ids`, `player_game_stats`.
 
 ### DST players
 
@@ -192,7 +201,7 @@ If playoff week numbers already have matchups (a 16–17 week regular season), s
 
 ## Identity
 
-Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match future Supabase Auth (`public.users.id` = `auth.users.id`). No passwords.
+Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match future Supabase Auth (`public.users.id` = `auth.users.id`). No passwords. Re-login does not reset jersey prefs, name, or avatar.
 
 ## Ingest identity
 

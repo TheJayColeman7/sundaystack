@@ -7,6 +7,9 @@ export interface NormalizedTeam {
   city: string | null;
   conference: string | null;
   division: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  tertiaryColor: string | null;
   externalIds: ExternalId[];
 }
 

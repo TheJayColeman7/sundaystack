@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import type { Request, Response } from "express";
-import type { AuthUser } from "@sundaystack/shared";
+import type { SessionUser } from "@sundaystack/shared";
 
 export const SESSION_COOKIE = "ss_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -13,7 +13,7 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-export async function signSession(user: AuthUser): Promise<string> {
+export async function signSession(user: SessionUser): Promise<string> {
   return new SignJWT({
     email: user.email,
     displayName: user.displayName,
@@ -25,7 +25,7 @@ export async function signSession(user: AuthUser): Promise<string> {
     .sign(getSecret());
 }
 
-export async function verifySession(token: string): Promise<AuthUser> {
+export async function verifySession(token: string): Promise<SessionUser> {
   const { payload } = await jwtVerify(token, getSecret());
   const id = payload.sub;
   const email = typeof payload.email === "string" ? payload.email : "";

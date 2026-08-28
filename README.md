@@ -1,6 +1,6 @@
 # SundayStack
 
-NFL fantasy football platform. Phase 0.5c in progress: 4-team playoffs (instant-accept trades close when the bracket exists). Phase 0.5a FA/waivers, 0.5b trades, and Phase 0.4 weekly H2H **points** are done. Extra commissioner tools stay later in 0.5.
+NFL fantasy football platform. Phase 0.5c in progress: 4-team playoffs (instant-accept trades close when the bracket exists). Phase 0.5a FA/waivers, 0.5b trades, and Phase 0.4 weekly H2H **points** are done. Extra commissioner tools stay later in 0.5. Account: favorite NFL team + Home/Away jersey kit (accent colors; Light/Dark later).
 
 ## Prerequisites
 
@@ -28,14 +28,15 @@ Use the local Postgres URL (port `54322` by default) as `DATABASE_URL`. Migratio
 
 ### Cloud Postgres (Neon or Supabase)
 
-Apply `supabase/migrations` in order (foundation, fantasy leagues, drafts, weekly games, waivers, trades, then playoffs). Against Neon from a network that blocks outbound 5432, use the HTTP/serverless driver (already selected when `DATABASE_URL` contains `neon.tech`).
+Apply `supabase/migrations` in order (foundation, fantasy leagues, drafts, weekly games, waivers, trades, playoffs, then user jersey). Against Neon from a network that blocks outbound 5432, use the HTTP/serverless driver (already selected when `DATABASE_URL` contains `neon.tech`).
 
 ## Commands
 
 ```bash
 pnpm ingest          # download nflverse CSVs, normalize, upsert into Postgres
+pnpm ingest -- --teams-only  # team colors only (needed after the jersey migration)
 pnpm seed:dst        # seed 32 team D/ST players (provider sundaystack)
-pnpm test            # unit tests (normalizers, scoring presets, lineup, snake draft, fantasy points, waivers, trades, playoffs)
+pnpm test            # unit tests (normalizers, scoring presets, lineup, snake draft, fantasy points, waivers, trades, playoffs, jersey kits)
 pnpm typecheck
 pnpm dev:api         # Express API (default http://localhost:3001)
 pnpm dev:web         # Next.js UI (default http://localhost:3000)

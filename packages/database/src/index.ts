@@ -1,7 +1,7 @@
 export { createDb, type Database } from "./client";
 export * from "./schema";
 export { listPlayers, getPlayerProfile } from "./queries/players";
-export { upsertDevUser, getUserById, type DevUser } from "./queries/auth";
+export { upsertDevUser, getUserById, patchUserAppearance, ProfileError, type DevUser } from "./queries/auth";
 export {
   LeagueError,
   createLeague,
@@ -36,6 +36,7 @@ export {
   replaceDraftQueue,
   startDraft,
 } from "./queries/drafts";
+export { listCurrentNflTeams, getCurrentNflTeam } from "./queries/teams";
 export { seedTeamDefenses, CURRENT_NFL_ABBREVIATIONS } from "./seed/dst";
 export {
   getMatchupDetail,

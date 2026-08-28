@@ -16,6 +16,9 @@ describe("mapTeamRow", () => {
       team_nick: "Chiefs",
       team_conf: "AFC",
       team_division: "West",
+      team_color: "#e31837",
+      team_color2: "FFB81C",
+      team_color3: "ffffff",
     });
 
     expect(team).toMatchObject({
@@ -23,6 +26,9 @@ describe("mapTeamRow", () => {
       name: "Kansas City Chiefs",
       conference: "AFC",
       division: "West",
+      primaryColor: "#E31837",
+      secondaryColor: "#FFB81C",
+      tertiaryColor: "#FFFFFF",
     });
     expect(team?.externalIds).toEqual([{ provider: "nflverse", externalId: "KC" }]);
   });

@@ -22,12 +22,6 @@ const timestamps = {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 };
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey(),
-  displayName: text("display_name"),
-  ...timestamps,
-});
-
 export const sports = pgTable("sports", {
   id: uuid("id").primaryKey().defaultRandom(),
   code: text("code").notNull().unique(),
@@ -47,10 +41,24 @@ export const teams = pgTable(
     city: text("city"),
     conference: text("conference"),
     division: text("division"),
+    primaryColor: text("primary_color"),
+    secondaryColor: text("secondary_color"),
+    tertiaryColor: text("tertiary_color"),
     ...timestamps,
   },
   (table) => [unique("teams_sport_id_abbreviation_unique").on(table.sportId, table.abbreviation)],
 );
+
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey(),
+  displayName: text("display_name"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  avatarUrl: text("avatar_url"),
+  favoriteTeamId: uuid("favorite_team_id").references(() => teams.id, { onDelete: "set null" }),
+  jerseySide: text("jersey_side").notNull().default("home"),
+  ...timestamps,
+});
 
 export const teamExternalIds = pgTable(
   "team_external_ids",

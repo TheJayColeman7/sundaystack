@@ -49,7 +49,7 @@ Web               Next.js, React, Tailwind CSS
 API               Express.js on Node.js (all HTTP APIs live here; do not duplicate them in Next.js)
 Mobile            React Native + Expo — later
 Database          PostgreSQL. Intended platform is Supabase. Currently a free Neon project (Docker/Supabase unavailable locally; outbound 5432 blocked).
-Auth              Express **dev login** (email + display name, no password) upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Session via `SESSION_SECRET` (Bearer or httpOnly cookie). Replace with Supabase Auth later without changing league FKs. Public sports reads (`GET /api/players`, `GET /api/players/:id`) do not require auth. League, draft, matchup, waiver, and trade routes do (playoff bracket is lazy on scoreboard/standings GET).
+Auth              Express **dev login** (email + display name, no password) upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Session via `SESSION_SECRET` (Bearer or httpOnly cookie). Replace with Supabase Auth later without changing league FKs. Public sports reads (`GET /api/players`, `GET /api/players/:id`, `GET /api/teams`) do not require auth. League, draft, matchup, waiver, and trade routes do (playoff bracket is lazy on scoreboard/standings GET). `PATCH /api/me` saves favorite NFL team + Home/Away jersey (not in the JWT).
 Realtime          Draft board polls ~1.5s; scoreboard, waivers, and trades ~15s. Draft clock, week lineup lock, waiver process, trade expiry, and playoff bracket generation are lazy (no worker, Redis, or Supabase Realtime). WebSockets later if needed.
 Cache             Upstash Redis later if needed
 Hosting           Vercel (web). Express is local-first. Defaults are web 3000 / API 3001; this machine uses 3002 / 3010. CORS origin is `API_CORS_ORIGIN` — do not hardcode 3000. Next.js does not auto-load the repo-root `.env`; `apps/web/next.config.ts` must inject `NEXT_PUBLIC_API_URL`.
@@ -63,8 +63,8 @@ Do not scaffold the full long-term tree until that phase starts.
 
 ```text
 sundaystack/
-├── apps/web/                 # Next.js UI (login, leagues, roster, draft, matchup, waivers, trades, player)
-├── apps/api/                 # Express REST (dev session + leagues + drafts + matchups + waivers + trades + public players)
+├── apps/web/                 # Next.js UI (login, leagues, roster, draft, matchup, waivers, trades, player, account)
+├── apps/api/                 # Express REST (dev session + leagues + drafts + matchups + waivers + trades + public players/teams)
 ├── packages/shared/          # Domain types, scoring presets, lineup + snake-draft + schedule + waiver + trade + playoff rules, API DTOs
 ├── packages/fantasy-engine/  # Pure fantasy-point scoring (skill + K; DEF = 0)
 ├── packages/database/        # Drizzle schema + queries (sports + fantasy + drafts + matchups + waivers + trades + playoffs; DST seed CLI)
@@ -108,7 +108,7 @@ The scoring engine (`packages/fantasy-engine`) currently implements Standard / H
 
 ## Database
 
-Keep real-world sports data and fantasy application data logically separated. Phase 0.2–0.5c tables exist (`drafts`, `draft_order`, `draft_picks`, `draft_queues`, `matchups` with `kind` regular|playoff, `weekly_lineups`, `week_locks`, `waiver_priorities`, `faab_balances`, `waiver_periods`, `waiver_claims`, `trades`, `trade_players`, `playoff_seeds`). Waiver order is rolling from reverse draft order — not reverse standings. Playoff seeds snapshot standings once (wins then PF, then `teamId`); playoff games do not change regular W-L-T. 4-team single-elim on NFL **REG** weeks N+1 / N+2 (default 15–16); POST unused. Tie in a playoff game: higher seed advances. League status stays `active`. Trades are 2-team players only; accept swaps live `roster_players` immediately; trades close when playoff seeds exist (`PLAYOFFS`). FA/waivers keep the 0.5a calendar through playoff-week locks. Public `GET /api/players` stays unfiltered; the FA/waiver pool is a member-only league route. Extra commissioner tools stay later in 0.5. Player search UI is the roster/draft/waiver picker plus `/players/[id]`.
+Keep real-world sports data and fantasy application data logically separated. Phase 0.2–0.5c tables exist (`drafts`, `draft_order`, `draft_picks`, `draft_queues`, `matchups` with `kind` regular|playoff, `weekly_lineups`, `week_locks`, `waiver_priorities`, `faab_balances`, `waiver_periods`, `waiver_claims`, `trades`, `trade_players`, `playoff_seeds`). `users` has `first_name`, `last_name`, `avatar_url`, `favorite_team_id` + `jersey_side` (`home` | `away`). `teams` stores `primary_color` / `secondary_color` / `tertiary_color` (ingest). Waiver order is rolling from reverse draft order — not reverse standings. Playoff seeds snapshot standings once (wins then PF, then `teamId`); playoff games do not change regular W-L-T. 4-team single-elim on NFL **REG** weeks N+1 / N+2 (default 15–16); POST unused. Tie in a playoff game: higher seed advances. League status stays `active`. Trades are 2-team players only; accept swaps live `roster_players` immediately; trades close when playoff seeds exist (`PLAYOFFS`). FA/waivers keep the 0.5a calendar through playoff-week locks. Public `GET /api/players` stays unfiltered; `GET /api/teams` is the current 32 NFL franchises; the FA/waiver pool is a member-only league route. Extra commissioner tools stay later in 0.5. Player search UI is the roster/draft/waiver picker plus `/players/[id]`. Account (`/account`, signed-in only) is email, first/last name, profile photo, favorite NFL team, and Home/Away jersey kit (accent-driven CSS tokens). True Light/Dark stays later.
 
 Use UUID PKs, `created_at`/`updated_at`, FKs, constraints, and indexes. Avoid derived data unless there is a performance reason (`players.team_id` as current team is an intentional denorm). Use JSONB only when it actually makes sense — not for major business objects.
 
@@ -125,7 +125,7 @@ Use UUID PKs, `created_at`/`updated_at`, FKs, constraints, and indexes. Avoid de
 
 ## Testing
 
-Prioritize tests for: data normalization, scoring **presets**, roster/lineup validation, draft rules, fantasy **point** scoring, waivers, trades, standings, playoff seeding. Point scoring tests live in `packages/fantasy-engine`. Presets, lineup rules, snake/autopick, round-robin, waiver resolution, trade validation, and playoff pairing live in `packages/shared`.
+Prioritize tests for: data normalization, scoring **presets**, roster/lineup validation, draft rules, fantasy **point** scoring, waivers, trades, standings, playoff seeding, jersey kits. Point scoring tests live in `packages/fantasy-engine`. Presets, lineup rules, snake/autopick, round-robin, waiver resolution, trade validation, playoff pairing, and Home/Away jersey tokens live in `packages/shared`.
 
 ## Cost
 

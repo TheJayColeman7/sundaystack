@@ -64,6 +64,9 @@ async function upsertTeams(
           city: team.city,
           conference: team.conference,
           division: team.division,
+          primaryColor: team.primaryColor,
+          secondaryColor: team.secondaryColor,
+          tertiaryColor: team.tertiaryColor,
           updatedAt: new Date(),
         })
         .where(eq(teams.id, existing.id));
@@ -76,6 +79,9 @@ async function upsertTeams(
         city: team.city,
         conference: team.conference,
         division: team.division,
+        primaryColor: team.primaryColor,
+        secondaryColor: team.secondaryColor,
+        tertiaryColor: team.tertiaryColor,
       });
     }
 
@@ -442,6 +448,16 @@ export interface IngestSummary {
   games: number;
   stats: number;
   statsSkipped: number;
+}
+
+export async function ingestTeams(
+  provider: SportsDataProvider,
+  db = createDb(),
+): Promise<{ teams: number }> {
+  const sportId = await requireNflSport(db);
+  console.info("Upserting teams…");
+  const teamIds = await upsertTeams(db, sportId, await provider.getTeams());
+  return { teams: teamIds.size };
 }
 
 export async function ingestSportsData(

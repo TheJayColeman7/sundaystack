@@ -1,3 +1,5 @@
+import type { JerseySide } from "./jersey";
+
 export interface PlayerListTeam {
   id: string;
   abbreviation: string;
@@ -50,10 +52,38 @@ export interface PlayerProfile extends PlayerListItem {
   recentGames: PlayerRecentGame[];
 }
 
-export interface AuthUser {
+export interface SessionUser {
   id: string;
   email: string;
   displayName: string;
+}
+
+export interface FavoriteTeamDto {
+  id: string;
+  abbreviation: string;
+  name: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+}
+
+export interface AuthUser extends SessionUser {
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+  jerseySide: JerseySide;
+  favoriteTeam: FavoriteTeamDto | null;
+}
+
+export interface NflTeamDto {
+  id: string;
+  abbreviation: string;
+  name: string;
+  city: string | null;
+  conference: string | null;
+  division: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  tertiaryColor: string | null;
 }
 
 export interface LeagueSettingsDto {

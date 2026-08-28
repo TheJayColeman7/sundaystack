@@ -57,7 +57,7 @@ function Side({ side }: { side: MatchupSideDto }) {
                 {player.position} {player.teamAbbreviation ?? "FA"}
               </span>
             </Link>
-            <span className="shrink-0 font-mono text-xs text-zinc-300">{playerPointsLabel(player)}</span>
+            <span className="shrink-0 font-mono text-xs text-fg">{playerPointsLabel(player)}</span>
           </li>
         ))}
       </ul>

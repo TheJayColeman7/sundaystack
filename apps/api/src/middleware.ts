@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import type { AuthUser } from "@sundaystack/shared";
+import type { SessionUser } from "@sundaystack/shared";
 import { readSessionToken, verifySession } from "./session";
 
-export type AuthedRequest = Request & { user: AuthUser };
+export type AuthedRequest = Request & { user: SessionUser };
 
 function isPublicPath(method: string, path: string): boolean {
   if (method === "OPTIONS") {
@@ -15,6 +15,9 @@ function isPublicPath(method: string, path: string): boolean {
     return true;
   }
   if (method === "GET" && path === "/api/players") {
+    return true;
+  }
+  if (method === "GET" && path === "/api/teams") {
     return true;
   }
   if (method === "GET" && /^\/api\/players\/[^/]+$/.test(path)) {
@@ -47,7 +50,7 @@ export async function sessionMiddleware(req: Request, res: Response, next: NextF
   next();
 }
 
-export function requireUser(req: Request): AuthUser {
+export function requireUser(req: Request): SessionUser {
   const user = (req as AuthedRequest).user;
   if (!user) {
     throw new Error("Unauthenticated");

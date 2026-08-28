@@ -52,6 +52,9 @@ export type {
   TradeStatusDto,
   PlayoffBracketDto,
   PlayoffSeedDto,
+  SessionUser,
+  FavoriteTeamDto,
+  NflTeamDto,
 } from "./api";
 export type { ScoringPreset, ScoringRule, StatKey } from "./scoring";
 export {
@@ -124,6 +127,17 @@ export {
   validateTradeOffer,
 } from "./trade";
 export type { PlayoffPairing, PlayoffSeeds } from "./playoff";
+export type { JerseySide, JerseyTheme, TeamColorInput } from "./jersey";
+export {
+  JERSEY_SIDES,
+  NEUTRAL_HOME,
+  isJerseySide,
+  parseHexColor,
+  formatHexColor,
+  resolveJerseyTheme,
+} from "./jersey";
+export { CURRENT_NFL_ABBREVIATIONS, isCurrentNflAbbreviation } from "./nfl";
+export type { CurrentNflAbbreviation } from "./nfl";
 export {
   championshipPairing,
   playoffWeeks,

@@ -14,6 +14,9 @@ const TEAMS: NormalizedTeam[] = [
     city: "Kansas City",
     conference: "AFC",
     division: "West",
+    primaryColor: "#E31837",
+    secondaryColor: "#FFB81C",
+    tertiaryColor: null,
     externalIds: [{ provider: "nflverse", externalId: "KC" }],
   },
   {
@@ -22,6 +25,9 @@ const TEAMS: NormalizedTeam[] = [
     city: "Buffalo",
     conference: "AFC",
     division: "East",
+    primaryColor: "#00338D",
+    secondaryColor: "#C60C30",
+    tertiaryColor: null,
     externalIds: [{ provider: "nflverse", externalId: "BUF" }],
   },
 ];

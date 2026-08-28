@@ -262,7 +262,7 @@ export default function DraftPage() {
 
       {missing ? (
         <section className="rounded border border-line bg-panel p-3">
-          <p className="text-sm text-zinc-300">The commissioner has not opened the draft lobby.</p>
+          <p className="text-sm text-fg">The commissioner has not opened the draft lobby.</p>
           {isCommissioner ? (
             <div className="mt-3 flex flex-wrap items-end gap-2">
               <label className="text-[11px] text-zinc-500">

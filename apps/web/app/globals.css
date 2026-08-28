@@ -2,8 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --ink: 12 16 22;
+  --panel: 21 27 36;
+  --line: 42 51 66;
+  --turf: 61 214 140;
+  --fg: 232 237 244;
+  --muted: 161 161 170;
+}
+
 html,
 body {
-  background: #0c1016;
-  color: #e8edf4;
+  background: rgb(var(--ink));
+  color: rgb(var(--fg));
 }

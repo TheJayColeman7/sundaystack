@@ -43,7 +43,7 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-1 w-full rounded border border-line bg-panel px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-turf"
+            className="mt-1 w-full rounded border border-line bg-panel px-2 py-1.5 text-sm text-fg outline-none focus:border-turf"
           />
         </label>
         <label className="text-xs text-zinc-400">
@@ -53,7 +53,7 @@ export default function LoginPage() {
             maxLength={40}
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
-            className="mt-1 w-full rounded border border-line bg-panel px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-turf"
+            className="mt-1 w-full rounded border border-line bg-panel px-2 py-1.5 text-sm text-fg outline-none focus:border-turf"
           />
         </label>
         {error ? <p className="text-xs text-red-400">{error}</p> : null}

@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
-import { ingestSportsData } from "../ingest/run";
+import { ingestSportsData, ingestTeams } from "../ingest/run";
 import { NflverseProvider } from "../nflverse/provider";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -22,6 +22,15 @@ function parseSeasons(): number[] {
 try {
   const seasons = parseSeasons();
   const provider = new NflverseProvider({ seasons });
+  const teamsOnly = process.argv.includes("--teams-only");
+
+  if (teamsOnly) {
+    console.info("Ingesting nflverse team colors only");
+    const summary = await ingestTeams(provider);
+    console.info("Ingest complete:");
+    console.info(`  teams:  ${summary.teams}`);
+    process.exit(0);
+  }
 
   console.info(`Ingesting nflverse seasons: ${seasons.join(", ")}`);
 

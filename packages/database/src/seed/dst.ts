@@ -1,42 +1,10 @@
+import { CURRENT_NFL_ABBREVIATIONS } from "@sundaystack/shared";
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import type { Database } from "../client";
 import { playerExternalIds, players, sports, teams } from "../schema";
 
-export const CURRENT_NFL_ABBREVIATIONS = [
-  "ARI",
-  "ATL",
-  "BAL",
-  "BUF",
-  "CAR",
-  "CHI",
-  "CIN",
-  "CLE",
-  "DAL",
-  "DEN",
-  "DET",
-  "GB",
-  "HOU",
-  "IND",
-  "JAX",
-  "KC",
-  "LAC",
-  "LAR",
-  "LV",
-  "MIA",
-  "MIN",
-  "NE",
-  "NO",
-  "NYG",
-  "NYJ",
-  "PHI",
-  "PIT",
-  "SEA",
-  "SF",
-  "TB",
-  "TEN",
-  "WAS",
-] as const;
+export { CURRENT_NFL_ABBREVIATIONS };
 
 export async function seedTeamDefenses(db: Database): Promise<{ created: number; skipped: number }> {
   const [sport] = await db.select({ id: sports.id }).from(sports).where(eq(sports.code, "nfl")).limit(1);

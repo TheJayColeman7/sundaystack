@@ -1,5 +1,6 @@
 import {
   EMPTY_COUNTING_STATS,
+  formatHexColor,
   type CountingStats,
   type ExternalId,
   type GameStatus,
@@ -75,6 +76,9 @@ export function mapTeamRow(row: CsvRow): NormalizedTeam | null {
     city: cell(row, "team_nick") ?? null,
     conference: cell(row, "team_conf", "conference") ?? null,
     division: cell(row, "team_division", "division") ?? null,
+    primaryColor: formatHexColor(cell(row, "team_color") ?? null),
+    secondaryColor: formatHexColor(cell(row, "team_color2") ?? null),
+    tertiaryColor: formatHexColor(cell(row, "team_color3") ?? null),
     externalIds: [{ provider: "nflverse", externalId: abbreviation }],
   };
 }
