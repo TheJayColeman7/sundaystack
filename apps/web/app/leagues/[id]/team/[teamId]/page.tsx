@@ -76,9 +76,12 @@ export default function RosterPage() {
     return () => window.clearTimeout(handle);
   }, [search]);
 
-  const canEdit = Boolean(
+  const canEditRoster = Boolean(
     me && roster && (me.id === roster.team.ownerUserId || me.id === league?.commissionerUserId),
   );
+  const drafting = league?.status === "drafting";
+  const canAddDrop = canEditRoster && !drafting;
+  const canEdit = canEditRoster;
 
   const grouped = useMemo(() => {
     if (!roster) {
@@ -170,9 +173,18 @@ export default function RosterPage() {
         <h1 className="text-xl font-semibold">{roster.team.name}</h1>
         <p className="text-xs text-zinc-500">{roster.team.ownerDisplayName}</p>
       </div>
+      {drafting ? (
+        <p className="text-xs text-amber-400">
+          Add/drop is locked while the{" "}
+          <Link href={`/leagues/${params.id}/draft`} className="underline hover:text-turf">
+            draft
+          </Link>{" "}
+          is live.
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
-      {canEdit ? (
+      {canAddDrop ? (
         <div className="rounded border border-line bg-panel p-3">
           <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Add player</p>
           <input
@@ -259,14 +271,16 @@ export default function RosterPage() {
                             </option>
                           ))}
                         </select>
-                        <button
-                          type="button"
-                          disabled={pending}
-                          onClick={() => void dropPlayer(row.playerId)}
-                          className="text-[11px] text-red-400 disabled:opacity-50"
-                        >
-                          Drop
-                        </button>
+                        {canAddDrop ? (
+                          <button
+                            type="button"
+                            disabled={pending}
+                            onClick={() => void dropPlayer(row.playerId)}
+                            className="text-[11px] text-red-400 disabled:opacity-50"
+                          >
+                            Drop
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </li>

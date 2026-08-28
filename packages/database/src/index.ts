@@ -8,6 +8,7 @@ export {
   getFantasyTeam,
   getLeagueDetail,
   getLeagueSettings,
+  getLeagueStatus,
   joinLeague,
   listLeaguesForUser,
   replaceLeagueScoring,
@@ -22,4 +23,16 @@ export {
   listRosterPlayersForLeague,
   setLineup,
 } from "./queries/rosters";
+export {
+  appendTeamToLobbyOrder,
+  createDraftLobby,
+  expireIfNeeded,
+  getDraftRow,
+  getDraftState,
+  listDraftAvailable,
+  makeManualPick,
+  patchDraftLobby,
+  replaceDraftQueue,
+  startDraft,
+} from "./queries/drafts";
 export { seedTeamDefenses, CURRENT_NFL_ABBREVIATIONS } from "./seed/dst";

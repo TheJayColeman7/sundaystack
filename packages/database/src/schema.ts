@@ -317,3 +317,77 @@ export const rosterPlayers = pgTable(
     unique("roster_players_league_id_player_id_unique").on(table.leagueId, table.playerId),
   ],
 );
+
+export const drafts = pgTable("drafts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leagueId: uuid("league_id")
+    .notNull()
+    .unique()
+    .references(() => leagues.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("lobby"),
+  secondsPerPick: integer("seconds_per_pick").notNull().default(90),
+  currentPickNumber: integer("current_pick_number").notNull().default(1),
+  currentPickStartedAt: timestamp("current_pick_started_at", { withTimezone: true }),
+  totalPicks: integer("total_picks").notNull(),
+  ...timestamps,
+});
+
+export const draftOrder = pgTable(
+  "draft_order",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => drafts.id, { onDelete: "cascade" }),
+    slot: integer("slot").notNull(),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    ...timestamps,
+  },
+  (table) => [
+    unique("draft_order_draft_id_slot_unique").on(table.draftId, table.slot),
+    unique("draft_order_draft_id_fantasy_team_id_unique").on(table.draftId, table.fantasyTeamId),
+  ],
+);
+
+export const draftPicks = pgTable(
+  "draft_picks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => drafts.id, { onDelete: "cascade" }),
+    pickNumber: integer("pick_number").notNull(),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    playerId: uuid("player_id").references(() => players.id),
+    source: text("source").notNull(),
+    pickedAt: timestamp("picked_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (table) => [unique("draft_picks_draft_id_pick_number_unique").on(table.draftId, table.pickNumber)],
+);
+
+export const draftQueues = pgTable(
+  "draft_queues",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => drafts.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    rank: integer("rank").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique("draft_queues_draft_id_user_id_player_id_unique").on(table.draftId, table.userId, table.playerId),
+    unique("draft_queues_draft_id_user_id_rank_unique").on(table.draftId, table.userId, table.rank),
+  ],
+);

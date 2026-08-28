@@ -1,6 +1,6 @@
 # Architecture
 
-SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.1 is sports data ingestion and public player search. Phase 0.2 adds Express **dev login**, fantasy leagues, roster add/drop, and lineup validation. Fantasy **points** and weekly matchups stay in Phase 0.4 (`packages/fantasy-engine` is still deferred).
+SundayStack is a TypeScript monorepo (pnpm + Turborepo). Phase 0.3 snake draft is in (lobby, queue, live board via HTTP polling). Fantasy **points** and weekly matchups are Phase 0.4 (`packages/fantasy-engine` is still deferred).
 
 ## Why this shape
 
@@ -33,10 +33,10 @@ Next.js web app
 ## Workspace
 
 ```text
-apps/web                 Next.js App Router + Tailwind (login, leagues, roster, player)
-apps/api                 Express REST (dev session + leagues + public players)
-packages/shared          Domain types, scoring presets, lineup validation, API DTOs
-packages/database        Drizzle schema + queries (sports + fantasy)
+apps/web                 Next.js App Router + Tailwind (login, leagues, roster, draft, player)
+apps/api                 Express REST (dev session + leagues + drafts + public players)
+packages/shared          Domain types, scoring presets, lineup + snake-draft rules, API DTOs
+packages/database        Drizzle schema + queries (sports + fantasy + drafts)
 packages/sports-data     SportsDataProvider, NflverseProvider, MockProvider, ingest
 supabase/migrations      Canonical PostgreSQL
 docs/
@@ -65,7 +65,7 @@ CSV column names and nflverse field types stay inside `packages/sports-data/src/
 
 Public (no session): `GET /api/players`, `GET /api/players/:id`.
 
-Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League routes require a session. CORS origin comes from `API_CORS_ORIGIN` — do not hardcode 3000.
+Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League and draft routes require a session. The live draft board **polls** Express (about 1.5s). Clock expiry is lazy: the next draft GET/POST that sees an expired clock performs queue-then-BPA. No worker, Redis, or Realtime.
 
 Secrets stay in environment variables. Never send provider keys to the client.
 
@@ -77,8 +77,8 @@ Default ports are web `3000` and API `3001`. This machine uses `3002` / `3010` w
 
 Row Level Security allows public `SELECT` on sports tables. Fantasy tables deny `anon`. Express uses the database owner (bypasses RLS); league rules are enforced in Express.
 
-Neon HTTP (`drizzle-orm/neon-http`) has no interactive transactions. League create is ordered inserts; a mid-flight failure returns 500 (or the API deletes the league row).
+Neon HTTP (`drizzle-orm/neon-http`) has no interactive transactions. League create and draft picks are ordered inserts; unique constraints (`roster_players.league_id+player_id`, `draft_picks.draft_id+pick_number`) serialize races. A mid-flight failure returns 409/500.
 
 ## Cost
 
-Target $0/month: Neon/Supabase free tier, no Redis, no commercial sports API, no hosted worker. Ingest and DST seed are CLIs.
+Target $0/month: Neon/Supabase free tier, no Redis, no commercial sports API, no hosted worker. Ingest and DST seed are CLIs. Draft clock has no background job.

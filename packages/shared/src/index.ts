@@ -28,6 +28,12 @@ export type {
   RosterDto,
   RosterPlayerDto,
   ScoringRuleDto,
+  DraftStateDto,
+  DraftOrderSlotDto,
+  DraftPickDto,
+  DraftQueueItemDto,
+  DraftStatus,
+  DraftPickSource,
 } from "./api";
 export type { ScoringPreset, ScoringRule, StatKey } from "./scoring";
 export { SCORING_PRESETS, STAT_KEYS, isScoringPreset, scoringRulesForPreset } from "./scoring";
@@ -43,3 +49,12 @@ export {
   slotLimit,
   validateLineup,
 } from "./lineup";
+export type { AutopickCandidate, AutopickResult, AutopickSource } from "./draft";
+export {
+  chooseAutopick,
+  isClockExpired,
+  positionalNeedRank,
+  secondsRemaining,
+  snakePickOwner,
+  totalPicks,
+} from "./draft";

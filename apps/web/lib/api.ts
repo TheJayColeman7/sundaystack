@@ -10,17 +10,18 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const headers = new Headers(init?.headers);
-  if (init?.body && !headers.has("Content-Type")) {
+export async function api<T>(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
+  const { timeoutMs, ...rest } = init ?? {};
+  const headers = new Headers(rest.headers);
+  if (rest.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const response = await fetch(`${API_URL}${path}`, {
-    ...init,
+    ...rest,
     credentials: "include",
     headers,
-    signal: init?.signal ?? AbortSignal.timeout(8000),
+    signal: rest.signal ?? AbortSignal.timeout(timeoutMs ?? 8000),
   });
 
   if (!response.ok) {

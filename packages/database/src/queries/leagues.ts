@@ -7,9 +7,11 @@ import type {
   LeagueSummaryDto,
   ScoringRuleDto,
 } from "@sundaystack/shared";
-import { DEFAULT_ROSTER_CONFIG, type RosterConfig } from "@sundaystack/shared";
+import { DEFAULT_ROSTER_CONFIG, rosterCapacity, totalPicks, type RosterConfig } from "@sundaystack/shared";
 import type { Database } from "../client";
 import {
+  draftOrder,
+  drafts,
   fantasyTeams,
   leagueMembers,
   leagueScoringRules,
@@ -351,6 +353,10 @@ export async function joinLeague(
     throw new LeagueError("Invalid invite code", 404);
   }
 
+  if (league.status !== "pre_draft") {
+    throw new LeagueError("Cannot join after the draft has started", 409, "JOIN_LOCKED");
+  }
+
   const [existing] = await db
     .select({ id: leagueMembers.id })
     .from(leagueMembers)
@@ -370,6 +376,8 @@ export async function joinLeague(
     throw new LeagueError("League is full", 409, "LEAGUE_FULL");
   }
 
+  const teamId = randomUUID();
+
   try {
     await db.insert(leagueMembers).values({
       leagueId: league.id,
@@ -377,6 +385,7 @@ export async function joinLeague(
       role: "member",
     });
     await db.insert(fantasyTeams).values({
+      id: teamId,
       leagueId: league.id,
       ownerUserId: input.userId,
       name: input.displayName ? `${input.displayName}'s Team` : "New Team",
@@ -386,6 +395,31 @@ export async function joinLeague(
       throw new LeagueError("Already in this league", 409, "ALREADY_MEMBER");
     }
     throw error;
+  }
+
+  const [lobby] = await db.select().from(drafts).where(eq(drafts.leagueId, league.id)).limit(1);
+  if (lobby?.status === "lobby") {
+    const [maxRow] = await db
+      .select({ slot: draftOrder.slot })
+      .from(draftOrder)
+      .where(eq(draftOrder.draftId, lobby.id))
+      .orderBy(desc(draftOrder.slot))
+      .limit(1);
+    const nextSlot = (maxRow?.slot ?? 0) + 1;
+    const settings = await getLeagueSettings(db, league.id);
+    const capacity = rosterCapacity(settings ?? DEFAULT_ROSTER_CONFIG);
+    await db.insert(draftOrder).values({
+      draftId: lobby.id,
+      slot: nextSlot,
+      fantasyTeamId: teamId,
+    });
+    await db
+      .update(drafts)
+      .set({
+        totalPicks: totalPicks(nextSlot, capacity),
+        updatedAt: new Date(),
+      })
+      .where(eq(drafts.id, lobby.id));
   }
 
   const detail = await getLeagueDetail(db, league.id);
@@ -487,4 +521,16 @@ export async function getLeagueSettings(
     .where(eq(leagueSettings.leagueId, leagueId))
     .limit(1);
   return row ? settingsToDto(row) : null;
+}
+
+export async function getLeagueStatus(
+  db: Database,
+  leagueId: string,
+): Promise<string | null> {
+  const [row] = await db
+    .select({ status: leagues.status })
+    .from(leagues)
+    .where(eq(leagues.id, leagueId))
+    .limit(1);
+  return row?.status ?? null;
 }

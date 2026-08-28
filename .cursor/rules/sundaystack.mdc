@@ -13,7 +13,7 @@ Initial goal: a working **NFL Fantasy Football MVP** using **free data sources a
 
 See `docs/ROADMAP.md` for the current phase. See `docs/ARCHITECTURE.md` and `docs/DATA_MODEL.md` before changing structure or schema.
 
-**Current status:** Phase 0.2 is in place — Express **dev login**, leagues, roster add/drop, lineup validation, player search on the roster picker, thin player profile, seeded team DST. Scoring **rules** are stored; fantasy **points** are Phase 0.4. Next work is Phase 0.3 (snake draft). Database is still Neon (Docker/Supabase unavailable locally; outbound 5432 blocked).
+**Current status:** Phase 0.3 snake draft is done (lobby, queue, live board via HTTP polling, lazy clock expiry). Phase 0.4 is next: weekly matchups and fantasy **points**. Scoring **rules** are stored; do not persist points on stats. Database is still Neon (Docker/Supabase unavailable locally; outbound 5432 blocked).
 
 ## Core Rule
 
@@ -49,8 +49,8 @@ Web               Next.js, React, Tailwind CSS
 API               Express.js on Node.js (all HTTP APIs live here; do not duplicate them in Next.js)
 Mobile            React Native + Expo — later
 Database          PostgreSQL. Intended platform is Supabase. Currently a free Neon project (Docker/Supabase unavailable locally; outbound 5432 blocked).
-Auth              Express **dev login** (email + display name, no password) upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Session via `SESSION_SECRET` (Bearer or httpOnly cookie). Replace with Supabase Auth later without changing league FKs. Public sports reads (`GET /api/players`, `GET /api/players/:id`) do not require auth. League routes do.
-Realtime          Supabase Realtime initially; WebSockets later if needed
+Auth              Express **dev login** (email + display name, no password) upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Session via `SESSION_SECRET` (Bearer or httpOnly cookie). Replace with Supabase Auth later without changing league FKs. Public sports reads (`GET /api/players`, `GET /api/players/:id`) do not require auth. League and draft routes do.
+Realtime          Draft 0.3 uses HTTP polling (~1.5s) and lazy clock expiry — no worker, Redis, or Supabase Realtime. Realtime/WebSockets later if needed.
 Cache             Upstash Redis later if needed
 Hosting           Vercel (web). Express is local-first. Defaults are web 3000 / API 3001; this machine uses 3002 / 3010. CORS origin is `API_CORS_ORIGIN` — do not hardcode 3000. Next.js does not auto-load the repo-root `.env`; `apps/web/next.config.ts` must inject `NEXT_PUBLIC_API_URL`.
 Source control    GitHub
@@ -63,10 +63,10 @@ Do not scaffold the full long-term tree until that phase starts.
 
 ```text
 sundaystack/
-├── apps/web/                 # Next.js UI (login, leagues, roster, player profile)
-├── apps/api/                 # Express REST (dev session + leagues + public players)
-├── packages/shared/          # Domain types, scoring presets, lineup validation, API DTOs
-├── packages/database/        # Drizzle schema + queries (sports + fantasy; DST seed CLI)
+├── apps/web/                 # Next.js UI (login, leagues, roster, draft, player)
+├── apps/api/                 # Express REST (dev session + leagues + drafts + public players)
+├── packages/shared/          # Domain types, scoring presets, lineup + snake-draft rules, API DTOs
+├── packages/database/        # Drizzle schema + queries (sports + fantasy + drafts; DST seed CLI)
 ├── packages/sports-data/     # SportsDataProvider + nflverse + ingest CLI
 ├── supabase/migrations/      # Canonical SQL
 └── docs/
@@ -107,7 +107,7 @@ The scoring engine (future `packages/fantasy-engine`) must support Standard, Hal
 
 ## Database
 
-Keep real-world sports data and fantasy application data logically separated. Phase 0.2 fantasy tables exist: `leagues`, `league_members`, `fantasy_teams`, `league_settings`, `league_scoring_rules`, `roster_players`. Do not add drafts, matchups, or waivers before those phases. Player search UI is the roster add-player picker plus `/players/[id]` — there is no standalone Players directory.
+Keep real-world sports data and fantasy application data logically separated. Phase 0.2 fantasy tables and Phase 0.3 draft tables exist (`drafts`, `draft_order`, `draft_picks`, `draft_queues`). Do not add matchups or waivers before those phases. Player search UI is the roster/draft picker plus `/players/[id]`.
 
 Use UUID PKs, `created_at`/`updated_at`, FKs, constraints, and indexes. Avoid derived data unless there is a performance reason (`players.team_id` as current team is an intentional denorm). Use JSONB only when it actually makes sense — not for major business objects.
 
@@ -124,7 +124,7 @@ Use UUID PKs, `created_at`/`updated_at`, FKs, constraints, and indexes. Avoid de
 
 ## Testing
 
-Prioritize tests for: data normalization, scoring **presets**, roster/lineup validation, draft rules, waivers, trades, standings, playoff seeding. Fantasy **point** scoring should have extensive unit tests when `packages/fantasy-engine` exists. Presets and lineup rules live in `packages/shared` today.
+Prioritize tests for: data normalization, scoring **presets**, roster/lineup validation, draft rules, waivers, trades, standings, playoff seeding. Fantasy **point** scoring should have extensive unit tests when `packages/fantasy-engine` exists. Presets, lineup rules, and snake/autopick policy live in `packages/shared` today.
 
 ## Cost
 

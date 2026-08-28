@@ -8,6 +8,7 @@ import {
   getFantasyTeam,
   getLeagueDetail,
   getLeagueSettings,
+  getLeagueStatus,
   getRoster,
   joinLeague,
   listLeaguesForUser,
@@ -221,6 +222,12 @@ export function leaguesRouter(getDb: () => Database): Router {
         return;
       }
 
+      const leagueStatus = await getLeagueStatus(getDb(), id.data);
+      if (leagueStatus !== "pre_draft") {
+        res.status(409).json({ error: "Roster settings are frozen after the draft starts", code: "SETTINGS_FROZEN" });
+        return;
+      }
+
       const current = await getLeagueSettings(getDb(), id.data);
       if (!current) {
         res.status(404).json({ error: "Settings not found" });
@@ -320,6 +327,11 @@ export function leaguesRouter(getDb: () => Database): Router {
 
     try {
       await requireOwnerOrCommissioner(getDb(), leagueId.data, teamId.data, user.id);
+      const leagueStatus = await getLeagueStatus(getDb(), leagueId.data);
+      if (leagueStatus === "drafting") {
+        res.status(409).json({ error: "Add/drop is locked during the draft", code: "DRAFTING" });
+        return;
+      }
       const settings = await getLeagueSettings(getDb(), leagueId.data);
       if (!settings) {
         res.status(404).json({ error: "Settings not found" });
@@ -351,6 +363,11 @@ export function leaguesRouter(getDb: () => Database): Router {
 
     try {
       await requireOwnerOrCommissioner(getDb(), leagueId.data, teamId.data, user.id);
+      const leagueStatus = await getLeagueStatus(getDb(), leagueId.data);
+      if (leagueStatus === "drafting") {
+        res.status(409).json({ error: "Add/drop is locked during the draft", code: "DRAFTING" });
+        return;
+      }
       const roster = await dropRosterPlayer(getDb(), {
         teamId: teamId.data,
         playerId: playerId.data,

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, ilike, notInArray, or, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import type {
   PlayerListItem,
@@ -44,7 +44,7 @@ function toListItem(row: {
 
 export async function listPlayers(
   db: Database,
-  query: PlayerListQuery,
+  query: PlayerListQuery & { excludePlayerIds?: string[] },
 ): Promise<PlayerListResponse> {
   const filters: SQL[] = [];
 
@@ -66,6 +66,10 @@ export async function listPlayers(
     if (nameMatch) {
       filters.push(nameMatch);
     }
+  }
+
+  if (query.excludePlayerIds && query.excludePlayerIds.length > 0) {
+    filters.push(notInArray(players.id, query.excludePlayerIds));
   }
 
   const whereClause = filters.length > 0 ? and(...filters) : undefined;

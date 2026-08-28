@@ -91,7 +91,7 @@ export interface FantasyTeamSummaryDto {
 export interface LeagueSummaryDto {
   id: string;
   name: string;
-  status: "pre_draft" | "active";
+  status: "pre_draft" | "drafting" | "active";
   inviteCode: string;
   maxTeams: number;
   seasonYear: number;
@@ -103,7 +103,7 @@ export interface LeagueSummaryDto {
 export interface LeagueDetailDto {
   id: string;
   name: string;
-  status: "pre_draft" | "active";
+  status: "pre_draft" | "drafting" | "active";
   inviteCode: string;
   maxTeams: number;
   seasonYear: number;
@@ -127,4 +127,49 @@ export interface RosterPlayerDto {
 export interface RosterDto {
   team: FantasyTeamSummaryDto;
   players: RosterPlayerDto[];
+}
+
+export type DraftStatus = "lobby" | "live" | "complete";
+export type DraftPickSource = "manual" | "queue" | "autopick" | "passed_full";
+
+export interface DraftOrderSlotDto {
+  slot: number;
+  fantasyTeamId: string;
+  teamName: string;
+  ownerUserId: string;
+  ownerDisplayName: string | null;
+}
+
+export interface DraftPickDto {
+  pickNumber: number;
+  fantasyTeamId: string;
+  playerId: string | null;
+  playerDisplayName: string | null;
+  playerPosition: string | null;
+  source: DraftPickSource;
+  pickedAt: string | null;
+}
+
+export interface DraftQueueItemDto {
+  playerId: string;
+  rank: number;
+  displayName: string;
+  position: string;
+  teamAbbreviation: string | null;
+}
+
+export interface DraftStateDto {
+  id: string;
+  leagueId: string;
+  status: DraftStatus;
+  secondsPerPick: number;
+  currentPickNumber: number;
+  currentPickStartedAt: string | null;
+  secondsRemaining: number | null;
+  totalPicks: number;
+  onTheClockTeamId: string | null;
+  order: DraftOrderSlotDto[];
+  picks: DraftPickDto[];
+  myQueue: DraftQueueItemDto[];
+  occupiedPlayerIds: string[];
 }

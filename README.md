@@ -1,6 +1,6 @@
 # SundayStack
 
-NFL fantasy football platform. Phase 0.2: sports data, dev login, leagues, and clickable rosters. Fantasy **points** and drafts are later phases.
+NFL fantasy football platform. Phase 0.3 snake draft is in (lobby, queue, live board via HTTP polling). Fantasy **points** and weekly matchups are Phase 0.4.
 
 ## Prerequisites
 
@@ -28,14 +28,14 @@ Use the local Postgres URL (port `54322` by default) as `DATABASE_URL`. Migratio
 
 ### Cloud Postgres (Neon or Supabase)
 
-Apply `supabase/migrations` in order (foundation, then fantasy). Against Neon from a network that blocks outbound 5432, use the HTTP/serverless driver (already selected when `DATABASE_URL` contains `neon.tech`).
+Apply `supabase/migrations` in order (foundation, fantasy leagues, then drafts). Against Neon from a network that blocks outbound 5432, use the HTTP/serverless driver (already selected when `DATABASE_URL` contains `neon.tech`).
 
 ## Commands
 
 ```bash
 pnpm ingest          # download nflverse CSVs, normalize, upsert into Postgres
 pnpm seed:dst        # seed 32 team D/ST players (provider sundaystack)
-pnpm test            # unit tests (normalizers, scoring presets, lineup rules)
+pnpm test            # unit tests (normalizers, scoring presets, lineup, snake draft)
 pnpm typecheck
 pnpm dev:api         # Express API (default http://localhost:3001)
 pnpm dev:web         # Next.js UI (default http://localhost:3000)

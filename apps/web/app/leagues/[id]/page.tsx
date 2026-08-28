@@ -74,8 +74,16 @@ export default function LeaguePage() {
           </p>
           <h1 className="text-xl font-semibold">{league.name}</h1>
         </div>
-        <div className="rounded border border-line bg-panel px-3 py-1.5 font-mono text-sm tracking-widest text-turf">
-          {league.inviteCode}
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/leagues/${league.id}/draft`}
+            className="rounded border border-line px-3 py-1.5 text-xs font-medium hover:border-turf"
+          >
+            Draft
+          </Link>
+          <div className="rounded border border-line bg-panel px-3 py-1.5 font-mono text-sm tracking-widest text-turf">
+            {league.inviteCode}
+          </div>
         </div>
       </div>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
