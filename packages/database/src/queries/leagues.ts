@@ -7,7 +7,7 @@ import type {
   LeagueSummaryDto,
   ScoringRuleDto,
 } from "@sundaystack/shared";
-import { DEFAULT_ROSTER_CONFIG, rosterCapacity, totalPicks, type RosterConfig } from "@sundaystack/shared";
+import { DEFAULT_REGULAR_SEASON_WEEKS, DEFAULT_ROSTER_CONFIG, rosterCapacity, totalPicks, type RosterConfig } from "@sundaystack/shared";
 import type { Database } from "../client";
 import {
   draftOrder,
@@ -52,7 +52,7 @@ export function generateInviteCode(): string {
   return out;
 }
 
-function settingsToDto(row: {
+function slotConfig(row: {
   qb: number;
   rb: number;
   wr: number;
@@ -63,7 +63,7 @@ function settingsToDto(row: {
   def: number;
   bench: number;
   ir: number;
-}): LeagueSettingsDto {
+}): RosterConfig {
   return {
     qb: row.qb,
     rb: row.rb,
@@ -75,6 +75,25 @@ function settingsToDto(row: {
     def: row.def,
     bench: row.bench,
     ir: row.ir,
+  };
+}
+
+function settingsToDto(row: {
+  qb: number;
+  rb: number;
+  wr: number;
+  te: number;
+  flex: number;
+  superflex: number;
+  k: number;
+  def: number;
+  bench: number;
+  ir: number;
+  regularSeasonWeeks?: number;
+}): LeagueSettingsDto {
+  return {
+    ...slotConfig(row),
+    regularSeasonWeeks: row.regularSeasonWeeks ?? DEFAULT_REGULAR_SEASON_WEEKS,
   };
 }
 
@@ -228,7 +247,9 @@ export async function getLeagueDetail(db: Database, leagueId: string): Promise<L
       ownerUserId: row.ownerUserId,
       ownerDisplayName: row.ownerDisplayName,
     })),
-    settings: settingsRow ? settingsToDto(settingsRow) : DEFAULT_ROSTER_CONFIG,
+    settings: settingsRow
+      ? settingsToDto(settingsRow)
+      : { ...DEFAULT_ROSTER_CONFIG, regularSeasonWeeks: DEFAULT_REGULAR_SEASON_WEEKS },
     scoring,
   };
 }
@@ -520,7 +541,7 @@ export async function getLeagueSettings(
     .from(leagueSettings)
     .where(eq(leagueSettings.leagueId, leagueId))
     .limit(1);
-  return row ? settingsToDto(row) : null;
+  return row ? slotConfig(row) : null;
 }
 
 export async function getLeagueStatus(

@@ -27,4 +27,11 @@ describe("scoringRulesForPreset", () => {
     expect(pointsFor("half_ppr", "receptions")).toBe(0.5);
     expect(pointsFor("ppr", "receptions")).toBe(1);
   });
+
+  it("awards kicker XP and FG distance buckets", () => {
+    expect(pointsFor("ppr", "extra_points_made")).toBe(1);
+    expect(pointsFor("ppr", "field_goals_made_0_19")).toBe(3);
+    expect(pointsFor("ppr", "field_goals_made_40_49")).toBe(4);
+    expect(pointsFor("ppr", "field_goals_made_50_plus")).toBe(5);
+  });
 });

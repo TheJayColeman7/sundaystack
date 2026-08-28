@@ -1,6 +1,6 @@
 # SundayStack
 
-NFL fantasy football platform. Phase 0.3 snake draft is in (lobby, queue, live board via HTTP polling). Fantasy **points** and weekly matchups are Phase 0.4.
+NFL fantasy football platform. Phase 0.4 is done: weekly H2H matchups and fantasy **points** (skill + K; DEF = 0 until DST ingest). Next is Phase 0.5 (waivers, trades, playoffs).
 
 ## Prerequisites
 
@@ -28,14 +28,14 @@ Use the local Postgres URL (port `54322` by default) as `DATABASE_URL`. Migratio
 
 ### Cloud Postgres (Neon or Supabase)
 
-Apply `supabase/migrations` in order (foundation, fantasy leagues, then drafts). Against Neon from a network that blocks outbound 5432, use the HTTP/serverless driver (already selected when `DATABASE_URL` contains `neon.tech`).
+Apply `supabase/migrations` in order (foundation, fantasy leagues, drafts, then weekly games). Against Neon from a network that blocks outbound 5432, use the HTTP/serverless driver (already selected when `DATABASE_URL` contains `neon.tech`).
 
 ## Commands
 
 ```bash
 pnpm ingest          # download nflverse CSVs, normalize, upsert into Postgres
 pnpm seed:dst        # seed 32 team D/ST players (provider sundaystack)
-pnpm test            # unit tests (normalizers, scoring presets, lineup, snake draft)
+pnpm test            # unit tests (normalizers, scoring presets, lineup, snake draft, fantasy points)
 pnpm typecheck
 pnpm dev:api         # Express API (default http://localhost:3001)
 pnpm dev:web         # Next.js UI (default http://localhost:3000)
@@ -56,9 +56,10 @@ Then open the web app, sign in with the dev login (email + display name, no pass
 
 | Path | Role |
 |------|------|
-| `apps/web` | Next.js UI (login, leagues, roster, player profile) |
+| `apps/web` | Next.js UI (login, leagues, roster, draft, matchup, player profile) |
 | `apps/api` | Express REST |
-| `packages/shared` | Domain types, scoring presets, lineup validation, DTOs |
+| `packages/shared` | Domain types, scoring presets, lineup + schedule rules, DTOs |
+| `packages/fantasy-engine` | Pure fantasy-point scoring (skill + K; DEF = 0) |
 | `packages/database` | Drizzle schema and queries |
 | `packages/sports-data` | Providers + ingest CLI |
 | `supabase/migrations` | Canonical SQL |

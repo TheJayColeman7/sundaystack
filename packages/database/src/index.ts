@@ -36,3 +36,9 @@ export {
   startDraft,
 } from "./queries/drafts";
 export { seedTeamDefenses, CURRENT_NFL_ABBREVIATIONS } from "./seed/dst";
+export {
+  getMatchupDetail,
+  getScoreboard,
+  getStandings,
+  isCurrentWeekLineupLocked,
+} from "./queries/matchups";

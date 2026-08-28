@@ -8,6 +8,7 @@ import { sessionMiddleware } from "./middleware";
 import { authRouter } from "./routes/auth";
 import { draftsRouter } from "./routes/drafts";
 import { leaguesRouter } from "./routes/leagues";
+import { matchupsRouter } from "./routes/matchups";
 import { playersRouter } from "./routes/players";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -65,6 +66,7 @@ app.use(authRouter(getDb));
 app.use(playersRouter(getDb));
 app.use(leaguesRouter(getDb));
 app.use(draftsRouter(getDb));
+app.use(matchupsRouter(getDb));
 
 const port = Number(process.env.API_PORT ?? 3001);
 

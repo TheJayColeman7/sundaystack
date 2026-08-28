@@ -97,6 +97,9 @@ importers:
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
+      '@sundaystack/fantasy-engine':
+        specifier: workspace:*
+        version: link:../fantasy-engine
       '@sundaystack/shared':
         specifier: workspace:*
         version: link:../shared
@@ -119,6 +122,19 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
+
+  packages/fantasy-engine:
+    dependencies:
+      '@sundaystack/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.1)(jiti@1.21.7)(tsx@4.23.12)
 
   packages/shared:
     devDependencies:

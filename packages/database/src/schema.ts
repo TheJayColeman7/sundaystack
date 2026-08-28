@@ -277,6 +277,7 @@ export const leagueSettings = pgTable("league_settings", {
   def: integer("def").notNull().default(1),
   bench: integer("bench").notNull().default(6),
   ir: integer("ir").notNull().default(0),
+  regularSeasonWeeks: integer("regular_season_weeks").notNull().default(14),
   ...timestamps,
 });
 
@@ -390,4 +391,67 @@ export const draftQueues = pgTable(
     unique("draft_queues_draft_id_user_id_player_id_unique").on(table.draftId, table.userId, table.playerId),
     unique("draft_queues_draft_id_user_id_rank_unique").on(table.draftId, table.userId, table.rank),
   ],
+);
+
+export const matchups = pgTable(
+  "matchups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    week: integer("week").notNull(),
+    homeFantasyTeamId: uuid("home_fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    awayFantasyTeamId: uuid("away_fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    ...timestamps,
+  },
+  (table) => [
+    unique("matchups_league_id_week_home_unique").on(table.leagueId, table.week, table.homeFantasyTeamId),
+    unique("matchups_league_id_week_away_unique").on(table.leagueId, table.week, table.awayFantasyTeamId),
+  ],
+);
+
+export const weeklyLineups = pgTable(
+  "weekly_lineups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    week: integer("week").notNull(),
+    fantasyTeamId: uuid("fantasy_team_id")
+      .notNull()
+      .references(() => fantasyTeams.id, { onDelete: "cascade" }),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id),
+    slot: text("slot").notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    unique("weekly_lineups_league_week_team_player_unique").on(
+      table.leagueId,
+      table.week,
+      table.fantasyTeamId,
+      table.playerId,
+    ),
+  ],
+);
+
+export const weekLocks = pgTable(
+  "week_locks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leagueId: uuid("league_id")
+      .notNull()
+      .references(() => leagues.id, { onDelete: "cascade" }),
+    week: integer("week").notNull(),
+    lockedAt: timestamp("locked_at", { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (table) => [unique("week_locks_league_id_week_unique").on(table.leagueId, table.week)],
 );

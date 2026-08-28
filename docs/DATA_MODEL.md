@@ -2,7 +2,7 @@
 
 Canonical SQL: `supabase/migrations`. Drizzle: `packages/database/src/schema.ts`.
 
-Sports tables (Phase 0.1) stay separate from fantasy tables (Phase 0.2+). Counting stats still have **no fantasy points**. Scoring rules live on the league; the engine that applies them is Phase 0.4.
+Sports tables (Phase 0.1) stay separate from fantasy tables (Phase 0.2+). Counting stats still have **no fantasy points**. Scoring rules live on the league; `packages/fantasy-engine` applies them on read.
 
 ## Principles
 
@@ -36,6 +36,9 @@ drafts 1──* draft_picks
 drafts 1──* draft_queues
 fantasy_teams 1──* roster_players
 players 1──* roster_players
+leagues 1──* matchups
+leagues 1──* weekly_lineups
+leagues 1──* week_locks
 ```
 
 ## Sports tables (0.1)
@@ -44,7 +47,7 @@ Unchanged: `users`, `sports`, `teams`, `team_external_ids`, `players`, `player_e
 
 ### DST players
 
-Team defense is not in nflverse player stats. We seed 32 `players` rows with `position = DEF` (e.g. “Chiefs D/ST”), `team_id` set to that franchise, and `player_external_ids.provider = sundaystack`. Kickers come from nflverse.
+Team defense is not in nflverse player stats. We seed 32 `players` rows with `position = DEF` (e.g. “Chiefs D/ST”), `team_id` set to that franchise, and `player_external_ids.provider = sundaystack`. Kickers come from nflverse. Phase 0.4 scores DEF as **0** until team-week stats are ingested.
 
 ## Fantasy tables (0.2)
 
@@ -52,7 +55,7 @@ Team defense is not in nflverse player stats. We seed 32 `players` rows with `po
 
 `sport_id`, `season_id`, `name`, `commissioner_user_id`, unique `invite_code`, `status` (`pre_draft` | `drafting` | `active`), `max_teams` (8–14).
 
-Flow: `pre_draft` (lobby allowed) → `drafting` when the snake starts → `active` when the draft completes.
+Flow: `pre_draft` (lobby allowed) → `drafting` when the snake starts → `active` when the draft completes. Matchups require `active`.
 
 ### league_members
 
@@ -64,15 +67,15 @@ One team per member. Unique `(league_id, owner_user_id)`.
 
 ### league_settings
 
-1:1 with league. Slot counts: `qb`, `rb`, `wr`, `te`, `flex`, `superflex` (default 0), `k`, `def`, `bench`, `ir` (default 0). Frozen after the draft goes live. Draft rounds = roster capacity (IR excluded).
+1:1 with league. Slot counts: `qb`, `rb`, `wr`, `te`, `flex`, `superflex` (default 0), `k`, `def`, `bench`, `ir` (default 0). `regular_season_weeks` (default 14, 1–17). Frozen after the draft goes live. Draft rounds = roster capacity (IR excluded).
 
 ### league_scoring_rules
 
-Unique `(league_id, stat_key)` with `points_per` numeric. Presets (Standard / Half PPR / PPR) expand to these rows. **Not** stored on `player_game_stats`.
+Unique `(league_id, stat_key)` with `points_per` numeric. Presets (Standard / Half PPR / PPR) expand to skill keys plus kicker FG/XP. **Not** stored on `player_game_stats`. 2-pt conversions and fumbles are ingested but not in presets (score 0). DST keys are not in 0.4.
 
 ### roster_players
 
-Current roster + lineup slot (`QB` | `RB` | `WR` | `TE` | `FLEX` | `SUPERFLEX` | `K` | `DEF` | `BENCH`). Unique `(fantasy_team_id, player_id)` and unique `(league_id, player_id)`. Draft picks insert here. Weekly lineups are Phase 0.4.
+Current roster + live lineup slot (`QB` | `RB` | `WR` | `TE` | `FLEX` | `SUPERFLEX` | `K` | `DEF` | `BENCH`). Unique `(fantasy_team_id, player_id)` and unique `(league_id, player_id)`. Draft picks insert here. Historical weeks use `weekly_lineups`, not this table.
 
 ## Draft tables (0.3)
 
@@ -98,6 +101,28 @@ Clock expiry is **lazy**: the next authenticated draft GET/POST that sees an exp
 
 Autopick ranking uses counting stats from the latest ingested season (yards + TDs). That score is **not** stored and is **not** league fantasy points.
 
+## Weekly games (0.4)
+
+H2H only. Regular season is NFL `REG` weeks 1–14. No playoffs. Fantasy points are **computed on read** (locked lineup × week stats × current league rules). Nothing writes points onto `player_game_stats` or `matchups`.
+
+Schedule is generated lazily on first scoreboard fetch for an `active` league (circle round-robin, repeated to 14 weeks).
+
+Lineup **lock is lazy**: first authenticated scoreboard/matchup GET after the week’s earliest REG `kickoff_at` snapshots `roster_players` into `weekly_lineups`. `week_locks` marks the snapshot done. Before lock, scores use the live roster. After lock, add/drop can change the live roster but not that week’s snapshot.
+
+Starters score; bench is 0. DEF is 0 until DST ingest.
+
+### matchups
+
+`league_id`, `week`, `home_fantasy_team_id`, `away_fantasy_team_id`. Unique home and away per `(league_id, week)`. Home ≠ away.
+
+### weekly_lineups
+
+`league_id`, `week`, `fantasy_team_id`, `player_id`, `slot`. Unique `(league_id, week, fantasy_team_id, player_id)`.
+
+### week_locks
+
+`league_id`, `week`, `locked_at`. Unique `(league_id, week)`. Presence means the snapshot finished.
+
 ## Identity
 
 Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match future Supabase Auth (`public.users.id` = `auth.users.id`). No passwords.
@@ -117,4 +142,4 @@ Dev login (Phase 0.2) upserts stub `auth.users` + `public.users` so FKs match fu
 - Sports tables: `SELECT` for `anon` and `authenticated`.
 - `users`: read/update own row only.
 - Fantasy tables: not readable by `anon`. `authenticated` may select leagues they belong to.
-- Express uses the database owner (bypasses RLS). League and draft rules are enforced in the API.
+- Express uses the database owner (bypasses RLS). League, draft, and matchup rules are enforced in the API.

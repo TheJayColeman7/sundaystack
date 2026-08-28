@@ -34,9 +34,24 @@ export type {
   DraftQueueItemDto,
   DraftStatus,
   DraftPickSource,
+  MatchupDto,
+  MatchupSideDto,
+  PlayerWeekScoreDto,
+  ScoreboardMatchupDto,
+  WeekScoreboardDto,
+  StandingsRowDto,
 } from "./api";
 export type { ScoringPreset, ScoringRule, StatKey } from "./scoring";
-export { SCORING_PRESETS, STAT_KEYS, isScoringPreset, scoringRulesForPreset } from "./scoring";
+export {
+  SCORING_PRESETS,
+  STAT_KEYS,
+  isScoringPreset,
+  isStatKey,
+  scoringRulesForPreset,
+} from "./scoring";
+export { countingStatValue } from "./stats";
+export { DEFAULT_REGULAR_SEASON_WEEKS, buildRoundRobin } from "./schedule";
+export type { MatchupPairing } from "./schedule";
 export type { LineupPlayer, RosterConfig, RosterSlot, StarterSlot } from "./lineup";
 export {
   DEFAULT_ROSTER_CONFIG,

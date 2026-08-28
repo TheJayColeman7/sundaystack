@@ -3,8 +3,17 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import type { AuthUser, LeagueDetailDto, ScoringPreset } from "@sundaystack/shared";
+import type { AuthUser, LeagueDetailDto, ScoringPreset, StandingsRowDto, WeekScoreboardDto } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
+
+const SCOREBOARD_POLL_MS = 15_000;
+
+function formatPoints(value: number): string {
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+  return value.toFixed(2).replace(/\.?0+$/, "");
+}
 
 export default function LeaguePage() {
   const params = useParams<{ id: string }>();
@@ -14,6 +23,8 @@ export default function LeaguePage() {
   const [error, setError] = useState<string | null>(null);
   const [preset, setPreset] = useState<ScoringPreset>("ppr");
   const [pending, setPending] = useState(false);
+  const [standings, setStandings] = useState<StandingsRowDto[] | null>(null);
+  const [scoreboard, setScoreboard] = useState<WeekScoreboardDto | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -33,6 +44,39 @@ export default function LeaguePage() {
       }
     })();
   }, [params.id, router]);
+
+  useEffect(() => {
+    if (league?.status !== "active") {
+      return;
+    }
+    let cancelled = false;
+
+    async function loadWeek() {
+      try {
+        const [board, table] = await Promise.all([
+          api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, { timeoutMs: 30000 }),
+          api<{ data: StandingsRowDto[] }>(`/api/leagues/${params.id}/standings`, { timeoutMs: 30000 }),
+        ]);
+        if (!cancelled) {
+          setScoreboard(board);
+          setStandings(table.data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load matchups");
+        }
+      }
+    }
+
+    void loadWeek();
+    const handle = window.setInterval(() => {
+      void loadWeek();
+    }, SCOREBOARD_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [league?.status, params.id]);
 
   const isCommissioner = Boolean(me && league && me.id === league.commissionerUserId);
 
@@ -87,6 +131,82 @@ export default function LeaguePage() {
         </div>
       </div>
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
+
+      {league.status === "active" ? (
+        <>
+          <section>
+            <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+              Standings
+            </h2>
+            {standings && standings.length > 0 ? (
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wide text-zinc-500">
+                    <th className="pb-1 font-medium">Team</th>
+                    <th className="pb-1 font-medium">W-L-T</th>
+                    <th className="pb-1 text-right font-medium">PF</th>
+                    <th className="pb-1 text-right font-medium">PA</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {standings.map((row) => (
+                    <tr key={row.teamId}>
+                      <td className="py-1.5">
+                        <Link href={`/leagues/${league.id}/team/${row.teamId}`} className="hover:text-turf">
+                          {row.teamName}
+                        </Link>
+                      </td>
+                      <td className="py-1.5 font-mono text-xs">
+                        {row.wins}-{row.losses}-{row.ties}
+                      </td>
+                      <td className="py-1.5 text-right font-mono text-xs">{formatPoints(row.pointsFor)}</td>
+                      <td className="py-1.5 text-right font-mono text-xs">{formatPoints(row.pointsAgainst)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-xs text-zinc-500">Loading standings…</p>
+            )}
+          </section>
+
+          <section>
+            <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
+              Week {scoreboard?.week ?? "—"} scoreboard
+              {scoreboard?.locked ? (
+                <span className="ml-2 font-normal normal-case tracking-normal text-amber-400">Locked</span>
+              ) : null}
+            </h2>
+            {scoreboard ? (
+              <ul className="divide-y divide-line rounded border border-line">
+                {scoreboard.matchups.map((game) => (
+                  <li key={game.id}>
+                    <Link
+                      href={`/leagues/${league.id}/matchup/${game.id}`}
+                      className="flex items-center justify-between gap-3 px-3 py-2 text-sm hover:bg-panel"
+                    >
+                      <span className="min-w-0 truncate">
+                        {game.homeTeamName}
+                        <span className="mx-1.5 font-mono text-xs text-zinc-400">
+                          {formatPoints(game.homePoints)}
+                        </span>
+                        <span className="text-zinc-600">vs</span>
+                        <span className="mx-1.5 font-mono text-xs text-zinc-400">
+                          {formatPoints(game.awayPoints)}
+                        </span>
+                        {game.awayTeamName}
+                      </span>
+                      <span className="shrink-0 text-[11px] text-turf">Matchup</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-zinc-500">Loading scoreboard…</p>
+            )}
+          </section>
+        </>
+      ) : null}
 
       <section>
         <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-zinc-500">Teams</h2>

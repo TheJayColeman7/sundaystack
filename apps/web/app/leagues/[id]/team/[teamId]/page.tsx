@@ -10,6 +10,7 @@ import type {
   PlayerListResponse,
   RosterDto,
   RosterSlot,
+  WeekScoreboardDto,
 } from "@sundaystack/shared";
 import { ROSTER_SLOTS } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
@@ -26,6 +27,14 @@ const SLOT_ORDER: RosterSlot[] = [
   "BENCH",
 ];
 
+const SCOREBOARD_POLL_MS = 15_000;
+
+function formatCountdown(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
+}
+
 export default function RosterPage() {
   const params = useParams<{ id: string; teamId: string }>();
   const router = useRouter();
@@ -37,6 +46,8 @@ export default function RosterPage() {
   const [results, setResults] = useState<PlayerListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [scoreboard, setScoreboard] = useState<WeekScoreboardDto | null>(null);
+  const [localSeconds, setLocalSeconds] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const [userRes, detail, nextRoster] = await Promise.all([
@@ -63,6 +74,48 @@ export default function RosterPage() {
   }, [load, router]);
 
   useEffect(() => {
+    if (league?.status !== "active") {
+      return;
+    }
+    let cancelled = false;
+
+    async function loadBoard() {
+      try {
+        const board = await api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, {
+          timeoutMs: 30000,
+        });
+        if (!cancelled) {
+          setScoreboard(board);
+          setLocalSeconds(board.secondsToLock);
+        }
+      } catch {
+        if (!cancelled) {
+          setScoreboard(null);
+        }
+      }
+    }
+
+    void loadBoard();
+    const handle = window.setInterval(() => {
+      void loadBoard();
+    }, SCOREBOARD_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(handle);
+    };
+  }, [league?.status, params.id]);
+
+  useEffect(() => {
+    if (localSeconds == null || localSeconds <= 0 || scoreboard?.locked) {
+      return;
+    }
+    const handle = window.setInterval(() => {
+      setLocalSeconds((current) => (current == null ? current : Math.max(0, current - 1)));
+    }, 1000);
+    return () => window.clearInterval(handle);
+  }, [localSeconds === 0, scoreboard?.locked, scoreboard?.week]);
+
+  useEffect(() => {
     const q = search.trim();
     if (q.length < 2) {
       setResults([]);
@@ -80,8 +133,9 @@ export default function RosterPage() {
     me && roster && (me.id === roster.team.ownerUserId || me.id === league?.commissionerUserId),
   );
   const drafting = league?.status === "drafting";
+  const lineupLocked = Boolean(league?.status === "active" && scoreboard?.locked);
   const canAddDrop = canEditRoster && !drafting;
-  const canEdit = canEditRoster;
+  const canEditSlots = canEditRoster && !lineupLocked;
 
   const grouped = useMemo(() => {
     if (!roster) {
@@ -182,6 +236,15 @@ export default function RosterPage() {
           is live.
         </p>
       ) : null}
+      {league?.status === "active" && scoreboard ? (
+        <p className="text-xs text-amber-400">
+          {scoreboard.locked
+            ? `Week ${scoreboard.week} lineups are locked. Add/drop still changes your roster for later weeks.`
+            : localSeconds != null
+              ? `Week ${scoreboard.week} locks in ${formatCountdown(localSeconds)}. Set starters before kickoff.`
+              : `Week ${scoreboard.week} lineups are unlocked. Set starters before kickoff — empty starter slots score 0.`}
+        </p>
+      ) : null}
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
       {canAddDrop ? (
@@ -220,7 +283,7 @@ export default function RosterPage() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Lineup</h2>
-        {canEdit ? (
+        {canEditSlots ? (
           <button
             type="button"
             disabled={pending}
@@ -253,24 +316,26 @@ export default function RosterPage() {
                         {row.position} {row.teamAbbreviation ?? "FA"}
                       </span>
                     </Link>
-                    {canEdit ? (
+                    {(canEditSlots || canAddDrop) ? (
                       <div className="flex items-center gap-2">
-                        <select
-                          value={assignments[row.playerId] ?? row.slot}
-                          onChange={(event) =>
-                            setAssignments((current) => ({
-                              ...current,
-                              [row.playerId]: event.target.value as RosterSlot,
-                            }))
-                          }
-                          className="rounded border border-line bg-ink px-1 py-0.5 text-[11px]"
-                        >
-                          {ROSTER_SLOTS.map((slot) => (
-                            <option key={slot} value={slot}>
-                              {slot}
-                            </option>
-                          ))}
-                        </select>
+                        {canEditSlots ? (
+                          <select
+                            value={assignments[row.playerId] ?? row.slot}
+                            onChange={(event) =>
+                              setAssignments((current) => ({
+                                ...current,
+                                [row.playerId]: event.target.value as RosterSlot,
+                              }))
+                            }
+                            className="rounded border border-line bg-ink px-1 py-0.5 text-[11px]"
+                          >
+                            {ROSTER_SLOTS.map((slot) => (
+                              <option key={slot} value={slot}>
+                                {slot}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
                         {canAddDrop ? (
                           <button
                             type="button"

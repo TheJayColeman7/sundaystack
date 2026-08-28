@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@sundaystack/fantasy-engine": "workspace:*",
     "@sundaystack/shared": "workspace:*",
     "drizzle-orm": "^0.44.5",
     "dotenv": "^16.6.1",

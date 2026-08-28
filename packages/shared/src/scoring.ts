@@ -11,6 +11,12 @@ export const STAT_KEYS = [
   "receptions",
   "receiving_yards",
   "receiving_tds",
+  "extra_points_made",
+  "field_goals_made_0_19",
+  "field_goals_made_20_29",
+  "field_goals_made_30_39",
+  "field_goals_made_40_49",
+  "field_goals_made_50_plus",
 ] as const;
 
 export type StatKey = (typeof STAT_KEYS)[number];
@@ -22,6 +28,10 @@ export interface ScoringRule {
 
 export function isScoringPreset(value: string): value is ScoringPreset {
   return (SCORING_PRESETS as readonly string[]).includes(value);
+}
+
+export function isStatKey(value: string): value is StatKey {
+  return (STAT_KEYS as readonly string[]).includes(value);
 }
 
 export function scoringRulesForPreset(preset: ScoringPreset): ScoringRule[] {
@@ -36,5 +46,11 @@ export function scoringRulesForPreset(preset: ScoringPreset): ScoringRule[] {
     { statKey: "receptions", pointsPer: receptions },
     { statKey: "receiving_yards", pointsPer: 0.1 },
     { statKey: "receiving_tds", pointsPer: 6 },
+    { statKey: "extra_points_made", pointsPer: 1 },
+    { statKey: "field_goals_made_0_19", pointsPer: 3 },
+    { statKey: "field_goals_made_20_29", pointsPer: 3 },
+    { statKey: "field_goals_made_30_39", pointsPer: 3 },
+    { statKey: "field_goals_made_40_49", pointsPer: 4 },
+    { statKey: "field_goals_made_50_plus", pointsPer: 5 },
   ];
 }

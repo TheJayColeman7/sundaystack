@@ -67,6 +67,7 @@ export interface LeagueSettingsDto {
   def: number;
   bench: number;
   ir: number;
+  regularSeasonWeeks: number;
 }
 
 export interface ScoringRuleDto {
@@ -172,4 +173,58 @@ export interface DraftStateDto {
   picks: DraftPickDto[];
   myQueue: DraftQueueItemDto[];
   occupiedPlayerIds: string[];
+}
+
+export interface PlayerWeekScoreDto {
+  playerId: string;
+  displayName: string;
+  position: string;
+  slot: string;
+  points: number;
+  teamAbbreviation: string | null;
+}
+
+export interface MatchupSideDto {
+  team: FantasyTeamSummaryDto;
+  points: number;
+  players: PlayerWeekScoreDto[];
+}
+
+export interface MatchupDto {
+  id: string;
+  leagueId: string;
+  week: number;
+  locked: boolean;
+  home: MatchupSideDto;
+  away: MatchupSideDto;
+}
+
+export interface ScoreboardMatchupDto {
+  id: string;
+  homeTeamId: string;
+  homeTeamName: string;
+  homePoints: number;
+  awayTeamId: string;
+  awayTeamName: string;
+  awayPoints: number;
+}
+
+export interface WeekScoreboardDto {
+  week: number;
+  currentWeek: number;
+  regularSeasonWeeks: number;
+  locked: boolean;
+  lockedAt: string | null;
+  secondsToLock: number | null;
+  matchups: ScoreboardMatchupDto[];
+}
+
+export interface StandingsRowDto {
+  teamId: string;
+  teamName: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  pointsAgainst: number;
 }

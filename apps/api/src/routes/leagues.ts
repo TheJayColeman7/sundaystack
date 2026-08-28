@@ -10,6 +10,7 @@ import {
   getLeagueSettings,
   getLeagueStatus,
   getRoster,
+  isCurrentWeekLineupLocked,
   joinLeague,
   listLeaguesForUser,
   listRosterPlayersForLeague,
@@ -390,6 +391,10 @@ export function leaguesRouter(getDb: () => Database): Router {
 
     try {
       await requireOwnerOrCommissioner(getDb(), leagueId.data, teamId.data, user.id);
+      if (await isCurrentWeekLineupLocked(getDb(), leagueId.data)) {
+        res.status(409).json({ error: "Lineup is locked for this week", code: "LINEUP_LOCKED" });
+        return;
+      }
       const settings = await getLeagueSettings(getDb(), leagueId.data);
       if (!settings) {
         res.status(404).json({ error: "Settings not found" });

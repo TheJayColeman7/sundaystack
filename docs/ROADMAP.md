@@ -16,11 +16,13 @@ Snake draft MVP: lobby, order, timer, availability, queue, picks, live board (HT
 
 **Out of this phase (still later):** linear/auction/dynasty, ADP product, WebSockets, real Supabase Auth.
 
-## Current: Phase 0.4 — Weekly Fantasy Games
+## Done: Phase 0.4 — Weekly Fantasy Games
 
-Matchups, weekly lineups, fantasy scoring engine, totals, results, records, standings. Projections later.
+Matchups, weekly lineups, fantasy scoring engine (skill + K; DEF = 0), totals, results, records, standings.
 
-## Phase 0.5 — League Management
+**Out of this phase (still later):** projections, DST ingest, persisting fantasy points, scoring worker.
+
+## Current: Phase 0.5 — League Management
 
 Free agents, waivers (priority and FAAB), trades, commissioner tools, playoffs.
 
