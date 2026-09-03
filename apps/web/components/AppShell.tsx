@@ -13,6 +13,14 @@ import {
   themeFromUser,
 } from "@/lib/theme";
 
+function isDraftPath(pathname: string): boolean {
+  return /\/leagues\/[^/]+\/draft\/?$/.test(pathname);
+}
+
+function isFantasyPath(pathname: string): boolean {
+  return pathname === "/" || pathname.startsWith("/leagues") || pathname.startsWith("/players");
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,6 +65,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [load]);
 
   const onAccount = pathname === "/account";
+  const onLogin = pathname === "/login";
+  const onDraft = isDraftPath(pathname);
+  const showMobileTabs = Boolean(user) && !onLogin && !onDraft;
+  const fantasyActive = isFantasyPath(pathname);
+  const accountActive = onAccount;
 
   useEffect(() => {
     if (user === null && onAccount) {
@@ -76,15 +89,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-ink text-fg">
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-ink/95 px-4 py-2.5 backdrop-blur">
         <div className="flex items-center gap-5">
-          <Link href={user ? "/leagues" : "/"} className="text-sm font-semibold tracking-tight">
+          <Link href="/" className="text-sm font-semibold tracking-tight">
             SundayStack
           </Link>
           {user ? (
-            <nav className="flex gap-3 text-xs font-medium uppercase tracking-wide text-muted">
-              <Link href="/leagues" className="hover:text-turf">
+            <nav className="hidden gap-3 text-xs font-medium uppercase tracking-wide text-muted md:flex">
+              <Link href="/" className={`hover:text-turf ${fantasyActive && !accountActive ? "text-turf" : ""}`}>
                 Leagues
               </Link>
-              <Link href="/account" className="hover:text-turf">
+              <Link href="/account" className={`hover:text-turf ${accountActive ? "text-turf" : ""}`}>
                 Account
               </Link>
             </nav>
@@ -95,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="text-muted">…</span>
           ) : user ? (
             <>
-              <Link href="/account" className="hidden items-center gap-2 text-muted hover:text-fg sm:flex">
+              <Link href="/account" className="hidden items-center gap-2 text-muted hover:text-fg md:flex">
                 {user.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={user.avatarUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
@@ -120,13 +133,43 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </div>
       </header>
-      <div className="mx-auto w-full max-w-5xl px-4 py-5">
+      <div
+        className={`mx-auto w-full max-w-5xl px-4 pt-5 ${
+          showMobileTabs ? "pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-5" : "pb-5"
+        }`}
+      >
         {onAccount && user === undefined ? (
           <p className="text-sm text-muted">Loading…</p>
         ) : onAccount && !user ? null : (
           children
         )}
       </div>
+      {showMobileTabs ? (
+        <nav className="fixed bottom-0 left-0 right-0 z-20 border-t border-line bg-ink/95 pb-[env(safe-area-inset-bottom)] md:hidden">
+          <div className="mx-auto flex max-w-5xl">
+            <Link
+              href="/"
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium uppercase tracking-wide ${
+                fantasyActive && !accountActive ? "text-turf" : "text-muted"
+              }`}
+            >
+              Fantasy
+            </Link>
+            <Link
+              href="/account"
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium uppercase tracking-wide ${
+                accountActive ? "text-turf" : "text-muted"
+              }`}
+            >
+              {user?.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={user.avatarUrl} alt="" className="mb-0.5 h-5 w-5 rounded-full object-cover" />
+              ) : null}
+              Account
+            </Link>
+          </div>
+        </nav>
+      ) : null}
     </div>
   );
 }

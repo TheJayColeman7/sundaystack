@@ -68,7 +68,7 @@ CSV column names and nflverse field types stay inside `packages/sports-data/src/
 
 Public (no session): `GET /api/players`, `GET /api/players/:id`, `GET /api/teams` (current 32 NFL franchises + colors).
 
-Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League, draft, matchup, waiver, and trade routes require a session. `GET /api/me` returns profile + jersey prefs; `PATCH /api/me` updates first/last name, avatar, favorite team, and Home/Away. Email is identity (read-only on Account). The JWT does not embed those fields (they go stale). The Account nav item is session-only.
+Dev login upserts stub `auth.users` + `public.users` so IDs stay `uuid = future auth.users.id`. Signed session (`SESSION_SECRET`) via Bearer or httpOnly cookie. League, draft, matchup, waiver, and trade routes require a session. Signed-in home is `/` (league list, or join/create if none); `/leagues` redirects there. Desktop top nav is Leagues + Account; mobile (`md` and below) uses a Fantasy + Account tab bar (hidden on login and the draft board). `GET /api/me` returns profile + jersey prefs; `PATCH /api/me` updates first/last name, avatar, favorite team, and Home/Away. Email is identity (read-only on Account). The JWT does not embed those fields (they go stale). Account is session-only.
 
 The live draft board **polls** Express (about 1.5s). Scoreboard, waivers, and trades poll about 15s while a week is live. Draft clock expiry, week lineup lock, waiver processing, trade offer expiry, and playoff bracket/championship generation are **lazy**: the next authenticated GET/POST that sees the condition performs the work. No worker, Redis, or Realtime.
 

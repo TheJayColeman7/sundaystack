@@ -30,8 +30,8 @@ export default function PlayerProfilePage() {
   return (
     <main className="flex flex-col gap-5">
       <div>
-        <Link href="/leagues" className="text-[11px] text-zinc-500 hover:text-turf">
-          ← Leagues
+        <Link href="/" className="text-[11px] text-zinc-500 hover:text-turf">
+          ← Fantasy
         </Link>
         <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">
           {player.position}

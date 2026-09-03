@@ -20,7 +20,7 @@ export default function LoginPage() {
         method: "POST",
         body: JSON.stringify({ email, displayName }),
       });
-      router.push("/leagues");
+      router.push("/");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");

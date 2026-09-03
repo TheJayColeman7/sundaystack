@@ -57,7 +57,7 @@ Then open the web app, sign in with the dev login (email + display name, no pass
 
 | Path | Role |
 |------|------|
-| `apps/web` | Next.js UI (login, leagues, roster, draft, matchup, waivers, trades, player profile) |
+| `apps/web` | Next.js UI (signed-in home `/`, login, leagues, roster, draft, matchup, waivers, trades, player, account) |
 | `apps/api` | Express REST |
 | `packages/shared` | Domain types, scoring presets, lineup + schedule + waiver + trade rules, DTOs |
 | `packages/fantasy-engine` | Pure fantasy-point scoring (skill + K; DEF = 0) |
