@@ -115,19 +115,10 @@ export default function LeaguePage() {
   return (
     <main className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] uppercase tracking-wide text-zinc-500">
-            {league.seasonYear} · {league.status.replace("_", " ")}
-          </p>
-          <h1 className="text-xl font-semibold">{league.name}</h1>
-        </div>
+        <p className="text-[11px] uppercase tracking-wide text-zinc-500">
+          {league.seasonYear} · {league.status.replace("_", " ")}
+        </p>
         <div className="flex items-center gap-3">
-          <Link
-            href={`/leagues/${league.id}/draft`}
-            className="rounded border border-line px-3 py-1.5 text-xs font-medium hover:border-turf"
-          >
-            Draft
-          </Link>
           {league.status === "active" ? (
             <>
               <Link

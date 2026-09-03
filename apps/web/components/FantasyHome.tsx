@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import type { LeagueSummaryDto } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
+import { leagueDraftPath, leagueEntryPath } from "@/lib/leaguePath";
 
 function statusLabel(status: LeagueSummaryDto["status"]): string {
   if (status === "pre_draft") {
@@ -111,7 +112,7 @@ export function FantasyHome({ onUnauthorized }: { onUnauthorized?: () => void })
         method: "POST",
         body: JSON.stringify({ name, scoringPreset: "ppr" }),
       });
-      router.push(`/leagues/${league.id}`);
+      router.push(leagueDraftPath(league.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
     } finally {
@@ -124,11 +125,13 @@ export function FantasyHome({ onUnauthorized }: { onUnauthorized?: () => void })
     setPending(true);
     setError(null);
     try {
-      const league = await api<{ id: string }>("/api/leagues/join", {
+      const joined = await api<{ id: string }>("/api/leagues/join", {
         method: "POST",
         body: JSON.stringify({ inviteCode }),
       });
-      router.push(`/leagues/${league.id}`);
+      const listed = await api<{ data: LeagueSummaryDto[] }>("/api/leagues");
+      const summary = listed.data.find((row) => row.id === joined.id);
+      router.push(summary ? leagueEntryPath(summary) : leagueDraftPath(joined.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Join failed");
     } finally {
@@ -170,7 +173,7 @@ export function FantasyHome({ onUnauthorized }: { onUnauthorized?: () => void })
             {leagues.map((league) => (
               <li key={league.id}>
                 <Link
-                  href={`/leagues/${league.id}`}
+                  href={leagueEntryPath(league)}
                   className="flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-panel"
                 >
                   <div className="min-w-0">
