@@ -6,27 +6,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AuthUser,
   LeagueDetailDto,
-  PlayerListItem,
-  PlayerListResponse,
+  MatchupDto,
   RosterDto,
   RosterSlot,
-  WaiverBoardDto,
+  StandingsRowDto,
   WeekScoreboardDto,
 } from "@sundaystack/shared";
-import { ROSTER_SLOTS } from "@sundaystack/shared";
+import { DEFAULT_ROSTER_CONFIG, ROSTER_SLOTS, slotLimit } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
-
-const SLOT_ORDER: RosterSlot[] = [
-  "QB",
-  "RB",
-  "WR",
-  "TE",
-  "FLEX",
-  "SUPERFLEX",
-  "K",
-  "DEF",
-  "BENCH",
-];
+import { leagueDraftPath, leagueTradesPath, leagueWaiversPath } from "@/lib/leaguePath";
 
 const SCOREBOARD_POLL_MS = 15_000;
 
@@ -36,6 +24,28 @@ function formatCountdown(seconds: number): string {
   return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
+function formatPoints(value: number): string {
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+  return value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function pointsByPlayer(matchup: MatchupDto | null, teamId: string): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!matchup) {
+    return map;
+  }
+  const side = matchup.home.team.id === teamId ? matchup.home : matchup.away.team.id === teamId ? matchup.away : null;
+  if (!side) {
+    return map;
+  }
+  for (const player of side.players) {
+    map.set(player.playerId, player.points);
+  }
+  return map;
+}
+
 export default function RosterPage() {
   const params = useParams<{ id: string; teamId: string }>();
   const router = useRouter();
@@ -43,12 +53,11 @@ export default function RosterPage() {
   const [league, setLeague] = useState<LeagueDetailDto | null>(null);
   const [me, setMe] = useState<AuthUser | null>(null);
   const [assignments, setAssignments] = useState<Record<string, RosterSlot>>({});
-  const [search, setSearch] = useState("");
-  const [results, setResults] = useState<PlayerListItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [scoreboard, setScoreboard] = useState<WeekScoreboardDto | null>(null);
-  const [waivers, setWaivers] = useState<WaiverBoardDto | null>(null);
+  const [matchup, setMatchup] = useState<MatchupDto | null>(null);
+  const [standings, setStandings] = useState<StandingsRowDto[] | null>(null);
   const [localSeconds, setLocalSeconds] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -76,6 +85,12 @@ export default function RosterPage() {
   }, [load, router]);
 
   useEffect(() => {
+    void api<{ data: StandingsRowDto[] }>(`/api/leagues/${params.id}/standings`, { timeoutMs: 30_000 })
+      .then((result) => setStandings(result.data))
+      .catch(() => setStandings([]));
+  }, [params.id]);
+
+  useEffect(() => {
     if (league?.status !== "active") {
       return;
     }
@@ -83,20 +98,31 @@ export default function RosterPage() {
 
     async function loadBoard() {
       try {
-        const [board, wire] = await Promise.all([
-          api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, {
-            timeoutMs: 30000,
-          }),
-          api<WaiverBoardDto>(`/api/leagues/${params.id}/waivers`, { timeoutMs: 30000 }),
-        ]);
+        const board = await api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, {
+          timeoutMs: 30_000,
+        });
+        if (cancelled) {
+          return;
+        }
+        setScoreboard(board);
+        setLocalSeconds(board.secondsToLock);
+        const row = board.matchups.find(
+          (game) => game.homeTeamId === params.teamId || game.awayTeamId === params.teamId,
+        );
+        if (!row) {
+          setMatchup(null);
+          return;
+        }
+        const next = await api<MatchupDto>(`/api/leagues/${params.id}/matchups/${row.id}`, {
+          timeoutMs: 30_000,
+        });
         if (!cancelled) {
-          setScoreboard(board);
-          setWaivers(wire);
-          setLocalSeconds(board.secondsToLock);
+          setMatchup(next);
         }
       } catch {
         if (!cancelled) {
           setScoreboard(null);
+          setMatchup(null);
         }
       }
     }
@@ -109,7 +135,7 @@ export default function RosterPage() {
       cancelled = true;
       window.clearInterval(handle);
     };
-  }, [league?.status, params.id]);
+  }, [league?.status, params.id, params.teamId]);
 
   useEffect(() => {
     if (localSeconds == null || localSeconds <= 0 || scoreboard?.locked) {
@@ -121,64 +147,36 @@ export default function RosterPage() {
     return () => window.clearInterval(handle);
   }, [localSeconds === 0, scoreboard?.locked, scoreboard?.week]);
 
-  useEffect(() => {
-    const q = search.trim();
-    if (q.length < 2) {
-      setResults([]);
-      return;
-    }
-    const handle = window.setTimeout(() => {
-      const path =
-        league?.status === "active"
-          ? `/api/leagues/${params.id}/waivers/available?search=${encodeURIComponent(q)}&limit=12`
-          : `/api/players?search=${encodeURIComponent(q)}&limit=12`;
-      void api<PlayerListResponse>(path)
-        .then((res) => setResults(res.data))
-        .catch(() => setResults([]));
-    }, 250);
-    return () => window.clearTimeout(handle);
-  }, [league?.status, params.id, search]);
-
   const canEditRoster = Boolean(
     me && roster && (me.id === roster.team.ownerUserId || me.id === league?.commissionerUserId),
   );
   const drafting = league?.status === "drafting";
   const lineupLocked = Boolean(league?.status === "active" && scoreboard?.locked);
   const canAddDrop = canEditRoster && !drafting;
-  const canInstantAdd = canAddDrop && waivers?.window !== "waiver";
-  const canClaim = canAddDrop && waivers?.window === "waiver";
   const canEditSlots = canEditRoster && !lineupLocked;
+  const mine = Boolean(me && roster && me.id === roster.team.ownerUserId);
+  const record = standings?.find((row) => row.teamId === params.teamId);
+  const playerPoints = useMemo(
+    () => pointsByPlayer(matchup, params.teamId),
+    [matchup, params.teamId],
+  );
 
   const grouped = useMemo(() => {
     if (!roster) {
       return [];
     }
-    return SLOT_ORDER.map((slot) => ({
-      slot,
-      players: roster.players.filter((row) => (assignments[row.playerId] ?? row.slot) === slot),
-    })).filter((group) => group.players.length > 0 || ["QB", "RB", "WR", "TE", "FLEX", "K", "DEF", "BENCH"].includes(group.slot));
-  }, [assignments, roster]);
+    const config = league?.settings ?? DEFAULT_ROSTER_CONFIG;
+    return ROSTER_SLOTS.map((slot) => {
+      const players = roster.players.filter(
+        (row) => (assignments[row.playerId] ?? row.slot) === slot,
+      );
+      const emptyCount = Math.max(0, slotLimit(config, slot) - players.length);
+      return { slot, players, emptyCount };
+    }).filter((group) => group.players.length > 0 || group.emptyCount > 0);
+  }, [assignments, league?.settings, roster]);
 
-  async function addPlayer(playerId: string) {
-    setPending(true);
-    setError(null);
-    try {
-      const next = await api<RosterDto>(
-        `/api/leagues/${params.id}/teams/${params.teamId}/roster`,
-        { method: "POST", body: JSON.stringify({ playerId }) },
-      );
-      setRoster(next);
-      setAssignments(
-        Object.fromEntries(next.players.map((row) => [row.playerId, row.slot as RosterSlot])),
-      );
-      setSearch("");
-      setResults([]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Add failed");
-    } finally {
-      setPending(false);
-    }
-  }
+  const starters = grouped.filter((group) => group.slot !== "BENCH");
+  const bench = grouped.filter((group) => group.slot === "BENCH");
 
   async function dropPlayer(playerId: string) {
     setPending(true);
@@ -227,37 +225,137 @@ export default function RosterPage() {
   }
 
   if (!roster) {
-    return <p className="text-sm text-zinc-500">{error ?? "Loading…"}</p>;
+    return <p className="text-sm text-muted">{error ?? "Loading…"}</p>;
+  }
+
+  const tradeHref =
+    mine || !league || league.status !== "active" || scoreboard?.playoffs
+      ? leagueTradesPath(params.id)
+      : leagueTradesPath(params.id, params.teamId);
+
+  function slotBlock(title: string, groups: typeof grouped) {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[11px] font-medium uppercase tracking-wide text-muted">{title}</h2>
+          {title === "Starters" && canEditSlots ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => void saveLineup()}
+              className="rounded bg-turf px-2.5 py-1 text-xs font-medium text-ink disabled:opacity-50"
+            >
+              Save lineup
+            </button>
+          ) : null}
+        </div>
+        {groups.map((group) => (
+          <section key={group.slot} className="rounded border border-line">
+            <div className="border-b border-line bg-panel px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-muted">
+              {group.slot}
+            </div>
+            <ul>
+              {group.players.map((row) => {
+                const pts = playerPoints.get(row.playerId);
+                return (
+                  <li
+                    key={row.id}
+                    className="flex items-center justify-between gap-2 border-t border-line/70 px-3 py-2 text-sm first:border-t-0"
+                  >
+                    <Link href={`/players/${row.playerId}`} className="min-w-0 truncate hover:text-turf">
+                      {row.displayName}
+                      <span className="ml-2 text-[11px] text-muted">
+                        {row.position} {row.teamAbbreviation ?? "FA"}
+                      </span>
+                    </Link>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {pts != null ? (
+                        <span className="font-mono text-xs text-fg">{formatPoints(pts)}</span>
+                      ) : null}
+                      {canEditSlots ? (
+                        <select
+                          value={assignments[row.playerId] ?? row.slot}
+                          onChange={(event) =>
+                            setAssignments((current) => ({
+                              ...current,
+                              [row.playerId]: event.target.value as RosterSlot,
+                            }))
+                          }
+                          className="rounded border border-line bg-ink px-1 py-0.5 text-[11px]"
+                        >
+                          {ROSTER_SLOTS.map((slot) => (
+                            <option key={slot} value={slot}>
+                              {slot}
+                            </option>
+                          ))}
+                        </select>
+                      ) : null}
+                      {canAddDrop ? (
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => void dropPlayer(row.playerId)}
+                          className="text-[11px] text-red-400 disabled:opacity-50"
+                        >
+                          Drop
+                        </button>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+              {Array.from({ length: group.emptyCount }, (_, index) => (
+                <li
+                  key={`${group.slot}-empty-${index}`}
+                  className="border-t border-line/70 px-3 py-2 text-xs text-zinc-600 first:border-t-0"
+                >
+                  Empty
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    );
   }
 
   return (
     <main className="flex flex-col gap-5">
-      <div>
-        <Link href={`/leagues/${params.id}`} className="text-[11px] text-zinc-500 hover:text-turf">
-          ← {league?.name ?? "League"}
+      <section className="flex items-center gap-3 rounded border border-line bg-panel px-3 py-3">
+        {mine && me?.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={me.avatarUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
+        ) : (
+          <span className="flex h-12 w-12 items-center justify-center rounded-full border border-line text-sm text-muted">
+            {(roster.team.name[0] ?? "?").toUpperCase()}
+          </span>
+        )}
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold">{roster.team.name}</h1>
+          <p className="text-[11px] text-muted">
+            {roster.team.ownerDisplayName}
+            {record
+              ? ` · ${record.wins}-${record.losses}-${record.ties}`
+              : league?.status === "active"
+                ? ""
+                : " · 0-0-0"}
+          </p>
+        </div>
+      </section>
+
+      <div className="flex gap-4 text-[11px] font-medium uppercase tracking-wide">
+        <Link href={tradeHref} className="text-muted hover:text-turf">
+          Trade
         </Link>
-        <h1 className="text-xl font-semibold">{roster.team.name}</h1>
-        <p className="text-xs text-zinc-500">{roster.team.ownerDisplayName}</p>
-        {league?.status === "active" ? (
-          <div className="flex gap-3">
-            <Link href={`/leagues/${params.id}/waivers`} className="text-[11px] text-turf hover:underline">
-              {waivers?.window === "waiver" ? "Waiver claims" : "Free agents / waivers"}
-            </Link>
-            {me && me.id !== roster.team.ownerUserId && !scoreboard?.playoffs ? (
-              <Link
-                href={`/leagues/${params.id}/trades?with=${params.teamId}`}
-                className="text-[11px] text-turf hover:underline"
-              >
-                Propose trade
-              </Link>
-            ) : null}
-          </div>
-        ) : null}
+        <Link href={leagueWaiversPath(params.id)} className="text-muted hover:text-turf">
+          Trans.
+        </Link>
       </div>
+
       {drafting ? (
         <p className="text-xs text-amber-400">
-          Add/drop is locked while the{" "}
-          <Link href={`/leagues/${params.id}/draft`} className="underline hover:text-turf">
+          Drop is locked while the{" "}
+          <Link href={leagueDraftPath(params.id)} className="underline hover:text-turf">
             draft
           </Link>{" "}
           is live.
@@ -266,7 +364,7 @@ export default function RosterPage() {
       {league?.status === "active" && scoreboard ? (
         <p className="text-xs text-amber-400">
           {scoreboard.locked
-            ? `Week ${scoreboard.week} lineups are locked. Add/drop still changes your roster for later weeks.`
+            ? `Week ${scoreboard.week} lineups are locked. Drops still change your roster for later weeks.`
             : localSeconds != null
               ? `Week ${scoreboard.week} locks in ${formatCountdown(localSeconds)}. Set starters before kickoff.`
               : `Week ${scoreboard.week} lineups are unlocked. Set starters before kickoff — empty starter slots score 0.`}
@@ -274,130 +372,8 @@ export default function RosterPage() {
       ) : null}
       {error ? <p className="text-xs text-red-400">{error}</p> : null}
 
-      {canAddDrop ? (
-        <div className="rounded border border-line bg-panel p-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-            {canClaim ? "Claim player" : "Add player"}
-          </p>
-          {canClaim ? (
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Instant adds are closed. Submit a claim — dropped players go on the waiver wire.
-            </p>
-          ) : null}
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search NFL players"
-            className="mt-2 w-full rounded border border-line bg-ink px-2 py-1.5 text-sm outline-none focus:border-turf"
-          />
-          {results.length > 0 ? (
-            <ul className="mt-2 divide-y divide-line">
-              {results.map((player) => (
-                <li key={player.id} className="flex items-center justify-between py-1.5 text-sm">
-                  <Link href={`/players/${player.id}`} className="hover:text-turf">
-                    {player.displayName}
-                    <span className="ml-2 text-[11px] text-zinc-500">
-                      {player.position} {player.team?.abbreviation ?? ""}
-                    </span>
-                  </Link>
-                  {canClaim ? (
-                    <Link
-                      href={`/leagues/${params.id}/waivers?player=${player.id}`}
-                      className="text-xs text-turf"
-                    >
-                      Claim
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={pending || !canInstantAdd}
-                      onClick={() => void addPlayer(player.id)}
-                      className="text-xs text-turf disabled:opacity-50"
-                    >
-                      Add
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="flex items-center justify-between">
-        <h2 className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Lineup</h2>
-        {canEditSlots ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => void saveLineup()}
-            className="rounded bg-turf px-2.5 py-1 text-xs font-medium text-ink disabled:opacity-50"
-          >
-            Save lineup
-          </button>
-        ) : null}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {grouped.map((group) => (
-          <section key={group.slot} className="rounded border border-line">
-            <div className="border-b border-line bg-panel px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-zinc-500">
-              {group.slot}
-            </div>
-            {group.players.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-zinc-600">Empty</p>
-            ) : (
-              <ul>
-                {group.players.map((row) => (
-                  <li
-                    key={row.id}
-                    className="flex items-center justify-between gap-2 border-t border-line/70 px-3 py-2 text-sm first:border-t-0"
-                  >
-                    <Link href={`/players/${row.playerId}`} className="min-w-0 truncate hover:text-turf">
-                      {row.displayName}
-                      <span className="ml-2 text-[11px] text-zinc-500">
-                        {row.position} {row.teamAbbreviation ?? "FA"}
-                      </span>
-                    </Link>
-                    {(canEditSlots || canAddDrop) ? (
-                      <div className="flex items-center gap-2">
-                        {canEditSlots ? (
-                          <select
-                            value={assignments[row.playerId] ?? row.slot}
-                            onChange={(event) =>
-                              setAssignments((current) => ({
-                                ...current,
-                                [row.playerId]: event.target.value as RosterSlot,
-                              }))
-                            }
-                            className="rounded border border-line bg-ink px-1 py-0.5 text-[11px]"
-                          >
-                            {ROSTER_SLOTS.map((slot) => (
-                              <option key={slot} value={slot}>
-                                {slot}
-                              </option>
-                            ))}
-                          </select>
-                        ) : null}
-                        {canAddDrop ? (
-                          <button
-                            type="button"
-                            disabled={pending}
-                            onClick={() => void dropPlayer(row.playerId)}
-                            className="text-[11px] text-red-400 disabled:opacity-50"
-                          >
-                            Drop
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        ))}
-      </div>
+      {slotBlock("Starters", starters)}
+      {bench.length > 0 ? slotBlock("Bench", bench) : null}
     </main>
   );
 }

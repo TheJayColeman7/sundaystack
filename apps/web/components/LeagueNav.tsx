@@ -5,9 +5,16 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { AuthUser, LeagueDetailDto } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
-import { leagueHubPath, leagueMatchPath, leagueDraftPath, leagueTeamPath, myTeamIdForUser } from "@/lib/leaguePath";
+import {
+  leagueHubPath,
+  leagueMatchPath,
+  leagueDraftPath,
+  leagueTeamPath,
+  leaguePlayersPath,
+  myTeamIdForUser,
+} from "@/lib/leaguePath";
 
-type LeagueTab = "draft" | "match" | "team" | "league";
+type LeagueTab = "draft" | "match" | "team" | "players" | "league";
 
 function activeTab(pathname: string, leagueId: string): LeagueTab {
   if (/\/draft\/?$/.test(pathname)) {
@@ -16,10 +23,13 @@ function activeTab(pathname: string, leagueId: string): LeagueTab {
   if (pathname.includes("/matchup/") || /\/match\/?$/.test(pathname)) {
     return "match";
   }
-  if (pathname.includes("/team/")) {
+  if (/\/players\/?$/.test(pathname)) {
+    return "players";
+  }
+  if (pathname.includes("/team/") || pathname.includes("/waivers") || pathname.includes("/trades")) {
     return "team";
   }
-  if (pathname === leagueHubPath(leagueId) || pathname.includes("/waivers") || pathname.includes("/trades")) {
+  if (pathname === leagueHubPath(leagueId)) {
     return "league";
   }
   return "league";
@@ -83,6 +93,9 @@ export function LeagueNav() {
             Team
           </Link>
         ) : null}
+        <Link href={leaguePlayersPath(league.id)} className={tabClass("players")}>
+          Players
+        </Link>
         <Link href={leagueHubPath(league.id)} className={tabClass("league")}>
           League
         </Link>

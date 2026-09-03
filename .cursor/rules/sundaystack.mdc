@@ -133,7 +133,7 @@ Target **$0/month**. Use free tiers. Do not introduce a paid API, database, host
 
 ## UI (when we build UI)
 
-Feel: Sleeper + modern sportsbook + fantasy analytics. Dark-mode friendly, clean, dense where useful, mobile-first. Avoid giant whitespace, excessive gradients, overly rounded chrome, generic AI SaaS look, unnecessary animation. All HTTP APIs stay on Express; the web app fetches `NEXT_PUBLIC_API_URL` with credentials. Signed-in home is `/` (leagues if any, else join/create). Desktop: top Leagues + Account. Mobile: Fantasy + Account bottom tabs (session-only; hide on draft). In-league tabs: Draft or Match, Team, League (Players later). `/leagues` redirects to `/`.
+Feel: Sleeper + modern sportsbook + fantasy analytics. Dark-mode friendly, clean, dense where useful, mobile-first. Avoid giant whitespace, excessive gradients, overly rounded chrome, generic AI SaaS look, unnecessary animation. All HTTP APIs stay on Express; the web app fetches `NEXT_PUBLIC_API_URL` with credentials. Signed-in home is `/` (leagues if any, else join/create). Desktop: top Leagues + Account. Mobile: Fantasy + Account bottom tabs (session-only; hide on draft). In-league tabs: Draft or Match, Team (roster/drop; Trade + Trans. → waivers), Players (search/FA/add), League. `/leagues` redirects to `/`.
 
 ## How to work
 

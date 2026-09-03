@@ -17,6 +17,19 @@ export function leagueTeamPath(leagueId: string, teamId: string): string {
   return `/leagues/${leagueId}/team/${teamId}`;
 }
 
+export function leaguePlayersPath(leagueId: string): string {
+  return `/leagues/${leagueId}/players`;
+}
+
+export function leagueTradesPath(leagueId: string, withTeamId?: string): string {
+  const base = `/leagues/${leagueId}/trades`;
+  return withTeamId ? `${base}?with=${withTeamId}` : base;
+}
+
+export function leagueWaiversPath(leagueId: string): string {
+  return `/leagues/${leagueId}/waivers`;
+}
+
 export function leagueHubPath(leagueId: string): string {
   return `/leagues/${leagueId}`;
 }
