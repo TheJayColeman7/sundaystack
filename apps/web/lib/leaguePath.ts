@@ -30,6 +30,22 @@ export function leagueWaiversPath(leagueId: string): string {
   return `/leagues/${leagueId}/waivers`;
 }
 
+export const LEAGUE_PROFILE_PARAM = "profile";
+
+export function withLeagueProfile(pathname: string, search: string, playerId: string): string {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  params.set(LEAGUE_PROFILE_PARAM, playerId);
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
+export function withoutLeagueProfile(pathname: string, search: string): string {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  params.delete(LEAGUE_PROFILE_PARAM);
+  const query = params.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
+
 export function leagueHubPath(leagueId: string): string {
   return `/leagues/${leagueId}`;
 }

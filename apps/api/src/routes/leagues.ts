@@ -21,6 +21,7 @@ import {
   requireLeagueMember,
   setLineup,
   updateLeagueSettings,
+  getLeaguePlayerProfile,
   type Database,
 } from "@sundaystack/database";
 import {
@@ -209,6 +210,32 @@ export function leaguesRouter(getDb: () => Database): Router {
         return;
       }
       res.json(league);
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
+  router.get("/api/leagues/:id/players/:playerId", async (req, res) => {
+    const user = requireUser(req);
+    const id = uuidParam.safeParse(req.params.id);
+    const playerId = uuidParam.safeParse(req.params.playerId);
+    if (!id.success || !playerId.success) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+
+    try {
+      await requireLeagueMember(getDb(), id.data, user.id);
+      const profile = await getLeaguePlayerProfile(getDb(), {
+        leagueId: id.data,
+        playerId: playerId.data,
+        userId: user.id,
+      });
+      if (!profile) {
+        res.status(404).json({ error: "Player not found" });
+        return;
+      }
+      res.json(profile);
     } catch (error) {
       sendError(res, error);
     }

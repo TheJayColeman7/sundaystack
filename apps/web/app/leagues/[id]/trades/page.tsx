@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AuthUser, LeagueDetailDto, RosterDto, TradeBoardDto, TradeDto } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
+import { LeaguePlayerLink } from "@/components/PlayerSheet";
 
 const POLL_MS = 15_000;
 
@@ -184,16 +185,16 @@ export default function TradesPage() {
               <p className="text-[11px] text-zinc-500">You send</p>
               <ul className="mt-1 divide-y divide-line">
                 {myRoster?.players.map((row) => (
-                  <li key={row.playerId} className="flex items-center justify-between py-1 text-sm">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={givePlayerIds.includes(row.playerId)}
-                        onChange={() => setGivePlayerIds((current) => toggleId(current, row.playerId))}
-                      />
+                  <li key={row.playerId} className="flex items-center justify-between gap-2 py-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={givePlayerIds.includes(row.playerId)}
+                      onChange={() => setGivePlayerIds((current) => toggleId(current, row.playerId))}
+                    />
+                    <LeaguePlayerLink playerId={row.playerId} className="min-w-0 flex-1 truncate hover:text-turf">
                       {row.displayName}
-                      <span className="text-[11px] text-zinc-500">{row.position}</span>
-                    </label>
+                      <span className="ml-2 text-[11px] text-zinc-500">{row.position}</span>
+                    </LeaguePlayerLink>
                   </li>
                 ))}
               </ul>
@@ -202,16 +203,16 @@ export default function TradesPage() {
               <p className="text-[11px] text-zinc-500">You receive</p>
               <ul className="mt-1 divide-y divide-line">
                 {theirRoster?.players.map((row) => (
-                  <li key={row.playerId} className="flex items-center justify-between py-1 text-sm">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={receivePlayerIds.includes(row.playerId)}
-                        onChange={() => setReceivePlayerIds((current) => toggleId(current, row.playerId))}
-                      />
+                  <li key={row.playerId} className="flex items-center justify-between gap-2 py-1 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={receivePlayerIds.includes(row.playerId)}
+                      onChange={() => setReceivePlayerIds((current) => toggleId(current, row.playerId))}
+                    />
+                    <LeaguePlayerLink playerId={row.playerId} className="min-w-0 flex-1 truncate hover:text-turf">
                       {row.displayName}
-                      <span className="text-[11px] text-zinc-500">{row.position}</span>
-                    </label>
+                      <span className="ml-2 text-[11px] text-zinc-500">{row.position}</span>
+                    </LeaguePlayerLink>
                   </li>
                 ))}
               </ul>

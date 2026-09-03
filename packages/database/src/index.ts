@@ -1,6 +1,7 @@
 export { createDb, type Database } from "./client";
 export * from "./schema";
 export { listPlayers, getPlayerProfile } from "./queries/players";
+export { getLeaguePlayerProfile } from "./queries/leaguePlayers";
 export { upsertDevUser, getUserById, patchUserAppearance, ProfileError, type DevUser } from "./queries/auth";
 export {
   LeagueError,
@@ -53,6 +54,7 @@ export {
   listWaiverAvailable,
   processWaiversIfDue,
   replaceWaiverClaims,
+  getWaiverWindowForLeague,
 } from "./queries/waivers";
 export {
   acceptTrade,

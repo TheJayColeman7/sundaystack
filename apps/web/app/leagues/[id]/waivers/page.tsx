@@ -12,6 +12,7 @@ import type {
   WaiverBoardDto,
 } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
+import { LeaguePlayerLink } from "@/components/PlayerSheet";
 
 const POLL_MS = 15_000;
 
@@ -289,12 +290,12 @@ export default function WaiversPage() {
             <ul className="mt-2 divide-y divide-line">
               {results.map((player) => (
                 <li key={player.id} className="flex items-center justify-between py-1.5 text-sm">
-                  <span>
+                  <LeaguePlayerLink playerId={player.id} className="min-w-0 truncate hover:text-turf">
                     {player.displayName}
                     <span className="ml-2 text-[11px] text-zinc-500">
                       {player.position} {player.team?.abbreviation ?? ""}
                     </span>
-                  </span>
+                  </LeaguePlayerLink>
                   <button
                     type="button"
                     disabled={pending || draft.some((claim) => claim.playerId === player.id)}
@@ -344,7 +345,9 @@ export default function WaiversPage() {
                 <li key={claim.playerId} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
                   <span className="w-6 font-mono text-[11px] text-zinc-500">{index + 1}</span>
                   <span className="min-w-0 flex-1 truncate">
-                    {claim.playerDisplayName}
+                    <LeaguePlayerLink playerId={claim.playerId} className="hover:text-turf">
+                      {claim.playerDisplayName}
+                    </LeaguePlayerLink>
                     <span className="ml-2 text-[11px] text-zinc-500">{claim.playerPosition}</span>
                   </span>
                   {roster && roster.players.length > 0 ? (
@@ -411,7 +414,9 @@ export default function WaiversPage() {
             {board.claims.map((claim) => (
               <li key={claim.id} className="flex items-center justify-between px-3 py-2 text-sm">
                 <span>
-                  {claim.playerDisplayName}
+                  <LeaguePlayerLink playerId={claim.playerId} className="hover:text-turf">
+                    {claim.playerDisplayName}
+                  </LeaguePlayerLink>
                   <span className="ml-2 text-[11px] text-zinc-500">
                     {claim.playerPosition}
                     {claim.dropDisplayName ? ` · drop ${claim.dropDisplayName}` : ""}

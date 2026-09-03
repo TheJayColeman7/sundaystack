@@ -15,6 +15,8 @@ import type {
 import { DEFAULT_ROSTER_CONFIG, ROSTER_SLOTS, slotLimit } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
 import { leagueDraftPath, leagueTradesPath, leagueWaiversPath } from "@/lib/leaguePath";
+import { LeaguePlayerLink } from "@/components/PlayerSheet";
+import { ROSTER_CHANGED_EVENT } from "@/lib/rosterSync";
 
 const SCOREBOARD_POLL_MS = 15_000;
 
@@ -83,6 +85,14 @@ export default function RosterPage() {
       setError(err instanceof Error ? err.message : "Failed to load roster");
     });
   }, [load, router]);
+
+  useEffect(() => {
+    function onRosterChanged() {
+      void load().catch(() => undefined);
+    }
+    window.addEventListener(ROSTER_CHANGED_EVENT, onRosterChanged);
+    return () => window.removeEventListener(ROSTER_CHANGED_EVENT, onRosterChanged);
+  }, [load]);
 
   useEffect(() => {
     void api<{ data: StandingsRowDto[] }>(`/api/leagues/${params.id}/standings`, { timeoutMs: 30_000 })
@@ -262,12 +272,12 @@ export default function RosterPage() {
                     key={row.id}
                     className="flex items-center justify-between gap-2 border-t border-line/70 px-3 py-2 text-sm first:border-t-0"
                   >
-                    <Link href={`/players/${row.playerId}`} className="min-w-0 truncate hover:text-turf">
+                    <LeaguePlayerLink playerId={row.playerId} className="min-w-0 truncate hover:text-turf">
                       {row.displayName}
                       <span className="ml-2 text-[11px] text-muted">
                         {row.position} {row.teamAbbreviation ?? "FA"}
                       </span>
-                    </Link>
+                    </LeaguePlayerLink>
                     <div className="flex shrink-0 items-center gap-2">
                       {pts != null ? (
                         <span className="font-mono text-xs text-fg">{formatPoints(pts)}</span>

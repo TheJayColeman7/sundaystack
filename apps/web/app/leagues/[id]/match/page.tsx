@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AuthUser, LeagueDetailDto, MatchupDto, WeekScoreboardDto } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
 import { MatchupView } from "@/components/MatchupView";
+import { ROSTER_CHANGED_EVENT } from "@/lib/rosterSync";
 import { leagueDraftPath, myTeamIdForUser } from "@/lib/leaguePath";
 
 export default function MatchPage() {
@@ -14,45 +15,54 @@ export default function MatchPage() {
   const [error, setError] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [userRes, detail] = await Promise.all([
-          api<{ user: AuthUser }>("/api/me"),
-          api<LeagueDetailDto>(`/api/leagues/${params.id}`),
-        ]);
-        if (detail.status !== "active") {
-          router.replace(leagueDraftPath(detail.id));
-          return;
-        }
-        const myTeamId = myTeamIdForUser(detail.teams, userRes.user.id);
-        if (!myTeamId) {
-          setEmpty(true);
-          return;
-        }
-        const board = await api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, {
-          timeoutMs: 30_000,
-        });
-        const row = board.matchups.find(
-          (game) => game.homeTeamId === myTeamId || game.awayTeamId === myTeamId,
-        );
-        if (!row) {
-          setEmpty(true);
-          return;
-        }
-        const next = await api<MatchupDto>(`/api/leagues/${params.id}/matchups/${row.id}`, {
-          timeoutMs: 30_000,
-        });
-        setMatchup(next);
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          router.replace("/login");
-          return;
-        }
-        setError(err instanceof Error ? err.message : "Failed to load match");
-      }
-    })();
+  const load = useCallback(async () => {
+    const [userRes, detail] = await Promise.all([
+      api<{ user: AuthUser }>("/api/me"),
+      api<LeagueDetailDto>(`/api/leagues/${params.id}`),
+    ]);
+    if (detail.status !== "active") {
+      router.replace(leagueDraftPath(detail.id));
+      return;
+    }
+    const myTeamId = myTeamIdForUser(detail.teams, userRes.user.id);
+    if (!myTeamId) {
+      setEmpty(true);
+      return;
+    }
+    const board = await api<WeekScoreboardDto>(`/api/leagues/${params.id}/scoreboard`, {
+      timeoutMs: 30_000,
+    });
+    const row = board.matchups.find(
+      (game) => game.homeTeamId === myTeamId || game.awayTeamId === myTeamId,
+    );
+    if (!row) {
+      setEmpty(true);
+      return;
+    }
+    const next = await api<MatchupDto>(`/api/leagues/${params.id}/matchups/${row.id}`, {
+      timeoutMs: 30_000,
+    });
+    setEmpty(false);
+    setMatchup(next);
   }, [params.id, router]);
+
+  useEffect(() => {
+    void load().catch((err: unknown) => {
+      if (err instanceof ApiError && err.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Failed to load match");
+    });
+  }, [load, router]);
+
+  useEffect(() => {
+    function onRosterChanged() {
+      void load().catch(() => undefined);
+    }
+    window.addEventListener(ROSTER_CHANGED_EVENT, onRosterChanged);
+    return () => window.removeEventListener(ROSTER_CHANGED_EVENT, onRosterChanged);
+  }, [load]);
 
   if (error) {
     return <p className="text-sm text-red-400">{error}</p>;

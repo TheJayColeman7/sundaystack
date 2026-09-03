@@ -13,6 +13,8 @@ import type {
 } from "@sundaystack/shared";
 import { ApiError, api } from "@/lib/api";
 import { leagueWaiversPath, myTeamIdForUser } from "@/lib/leaguePath";
+import { LeaguePlayerLink } from "@/components/PlayerSheet";
+import { ROSTER_CHANGED_EVENT } from "@/lib/rosterSync";
 
 const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DEF"] as const;
 
@@ -77,6 +79,14 @@ export default function LeaguePlayersPage() {
     }, 250);
     return () => window.clearTimeout(handle);
   }, [league, loadPlayers]);
+
+  useEffect(() => {
+    function onRosterChanged() {
+      loadPlayers();
+    }
+    window.addEventListener(ROSTER_CHANGED_EVENT, onRosterChanged);
+    return () => window.removeEventListener(ROSTER_CHANGED_EVENT, onRosterChanged);
+  }, [loadPlayers]);
 
   const drafting = league?.status === "drafting";
   const canEdit = Boolean(me && myTeamId && league && !drafting);
@@ -143,12 +153,12 @@ export default function LeaguePlayersPage() {
         <ul className="divide-y divide-line rounded border border-line">
           {players.map((player) => (
             <li key={player.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-              <Link href={`/players/${player.id}`} className="min-w-0 truncate hover:text-turf">
+              <LeaguePlayerLink playerId={player.id} className="min-w-0 truncate hover:text-turf">
                 {player.displayName}
                 <span className="ml-2 text-[11px] text-muted">
                   {player.position} {player.team?.abbreviation ?? "FA"}
                 </span>
-              </Link>
+              </LeaguePlayerLink>
               {canClaim ? (
                 <Link
                   href={`${leagueWaiversPath(params.id)}?player=${player.id}`}

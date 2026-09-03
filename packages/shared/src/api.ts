@@ -52,6 +52,50 @@ export interface PlayerProfile extends PlayerListItem {
   recentGames: PlayerRecentGame[];
 }
 
+export interface LeaguePlayerOwnershipDto {
+  teamId: string;
+  teamName: string;
+  ownerDisplayName: string | null;
+}
+
+export interface LeaguePlayerNflTeamDto {
+  id: string;
+  abbreviation: string;
+  name: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+}
+
+export interface LeaguePlayerRecentGameDto extends PlayerRecentGame {
+  points: number;
+}
+
+export interface LeaguePlayerNextGameDto {
+  week: number;
+  kickoffAt: string | null;
+  opponentAbbreviation: string | null;
+  home: boolean;
+}
+
+export interface LeaguePlayerProfileDto {
+  id: string;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  position: string;
+  jerseyNumber: number | null;
+  status: string | null;
+  headshotUrl: string | null;
+  team: LeaguePlayerNflTeamDto | null;
+  ownership: LeaguePlayerOwnershipDto | null;
+  myTeamId: string | null;
+  leagueStatus: "pre_draft" | "drafting" | "active";
+  waiverWindow: "fa" | "waiver" | null;
+  tradesClosed: boolean;
+  recentGames: LeaguePlayerRecentGameDto[];
+  nextGame: LeaguePlayerNextGameDto | null;
+}
+
 export interface SessionUser {
   id: string;
   email: string;

@@ -25,6 +25,11 @@ export type {
   PlayerListTeam,
   PlayerProfile,
   PlayerRecentGame,
+  LeaguePlayerProfileDto,
+  LeaguePlayerOwnershipDto,
+  LeaguePlayerNflTeamDto,
+  LeaguePlayerRecentGameDto,
+  LeaguePlayerNextGameDto,
   RosterDto,
   RosterPlayerDto,
   ScoringRuleDto,
@@ -146,3 +151,10 @@ export {
   seedPlayoffTeams,
   semiPairings,
 } from "./playoff";
+export type {
+  LeaguePlayerSheetAction,
+  LeaguePlayerSheetActionKind,
+  LeaguePlayerSheetReason,
+  PlayerOwnershipKind,
+} from "./playerSheet";
+export { classifyPlayerOwnership, leaguePlayerSheetAction, pickNextNflGame } from "./playerSheet";

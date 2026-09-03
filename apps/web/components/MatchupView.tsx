@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MatchupDto, MatchupSideDto, PlayerWeekScoreDto } from "@sundaystack/shared";
 import { STARTER_SLOTS } from "@sundaystack/shared";
+import { LeaguePlayerLink } from "@/components/PlayerSheet";
 
 const SLOT_ORDER = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX", "K", "DEF", "BENCH"] as const;
 
@@ -47,13 +48,13 @@ function Side({ side }: { side: MatchupSideDto }) {
             key={player.playerId}
             className="flex items-center justify-between gap-2 border-t border-line/70 px-3 py-1.5 text-sm first:border-t-0"
           >
-            <Link href={`/players/${player.playerId}`} className="min-w-0 truncate hover:text-turf">
+            <LeaguePlayerLink playerId={player.playerId} className="min-w-0 truncate hover:text-turf">
               <span className="mr-2 text-[11px] text-zinc-500">{player.slot}</span>
               {player.displayName}
               <span className="ml-1.5 text-[11px] text-zinc-500">
                 {player.position} {player.teamAbbreviation ?? "FA"}
               </span>
-            </Link>
+            </LeaguePlayerLink>
             <span className="shrink-0 font-mono text-xs text-fg">{playerPointsLabel(player)}</span>
           </li>
         ))}
@@ -67,9 +68,9 @@ function Side({ side }: { side: MatchupSideDto }) {
                 key={player.playerId}
                 className="flex items-center justify-between gap-2 px-3 py-1 text-xs text-zinc-500"
               >
-                <Link href={`/players/${player.playerId}`} className="min-w-0 truncate hover:text-turf">
+                <LeaguePlayerLink playerId={player.playerId} className="min-w-0 truncate hover:text-turf">
                   {player.displayName}
-                </Link>
+                </LeaguePlayerLink>
                 <span className="font-mono">0</span>
               </li>
             ))}

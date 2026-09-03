@@ -90,6 +90,18 @@ async function deriveWindow(db: Database, leagueId: string, now = new Date()) {
   return { ...derived, cycleProcessAt, settings, now };
 }
 
+export async function getWaiverWindowForLeague(
+  db: Database,
+  leagueId: string,
+): Promise<"fa" | "waiver" | null> {
+  const status = await getLeagueStatus(db, leagueId);
+  if (status !== "active") {
+    return null;
+  }
+  const derived = await deriveWindow(db, leagueId);
+  return derived.window;
+}
+
 async function ensureWaiverState(db: Database, leagueId: string): Promise<void> {
   const settings = await loadWaiverSettings(db, leagueId);
   const teams = await db
